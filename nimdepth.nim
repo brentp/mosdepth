@@ -9,14 +9,11 @@ proc dump(arr: seq[uint16], chrom: string) =
   var last_start = 0
   var last_cov = uint16(0)
   for i, cov in pairs(arr):
-    if cov != last_cov:
-      if last_cov == 0:
-        last_cov = cov
-        last_start = i
-        continue
+    if cov == last_cov: continue
+    if last_cov != 0:
       echo chrom, "\t", intToStr(last_start), "\t", intToStr(i), "\t", $last_cov
-      last_start = i
-      last_cov = cov
+    last_start = i
+    last_cov = cov
 
 proc main(path: string, threads:int) =
   var bam = hts.open_hts(path)
