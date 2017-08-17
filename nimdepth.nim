@@ -15,8 +15,9 @@ proc dump(arr: seq[uint16], chrom: string) =
     last_start = i
     last_cov = cov
 
-proc main(path: string, threads:int) =
-  var bam = hts.open_hts(path)
+proc main(path: string, threads:int=0, mapq:int= -1) =
+  echo mapq
+  var bam = hts.open_hts(path, threads=threads)
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
@@ -26,6 +27,7 @@ proc main(path: string, threads:int) =
   #  return a.start - b.start
   for rec in bam:
     if rec.flag.unmapped: continue
+    if int(rec.qual) < mapq: continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
           dump(arr, tgt.name)
@@ -43,13 +45,14 @@ when(isMainModule):
   let doc = """
   nimdepth
 
-  Usage: nimdepth [options] BAM
+  Usage: nimdepth [options] <BAM>
   
   -t --threads <threads>  number of threads to use [default: 1]
+  -Q --mapq <mapq>        mapping quality threshold [default: 0]
   -h --help               show help
   """
 
-  let args = docopt(doc, version = "nimdepth 0.1.1", quit=true)
+  let args = docopt(doc, version = "nimdepth 0.1.1")
+  var mapq = S.parse_int($args["--mapq"])
 
-
-  main($args["BAM"], S.parse_int($args["--threads"]))
+  main($args["<BAM>"], S.parse_int($args["--threads"]), mapq)
