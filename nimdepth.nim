@@ -3,41 +3,48 @@ import tables
 import strutils as S
 import os
 import docopt
-#import binaryheap as bh
+import tables
 
-proc dump(arr: seq[uint16], chrom: string) =
-  var last_start = 0
-  var last_cov = uint16(0)
-  for i, cov in pairs(arr):
-    if cov == last_cov: continue
-    if last_cov != 0:
-      echo chrom, "\t", intToStr(last_start), "\t", intToStr(i), "\t", $last_cov
+proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
+
+proc dump(arr: seq[int16], chrom: string) =
+  var
+    last_start = -1
+    last_depth = 0
+    depth = 0
+  
+  for i, change in pairs(arr):
+    depth += int(change)
+    if depth == last_depth: continue
+    if last_depth != 0:
+      stdout.write_line chrom & "\t" & intToStr(last_start) & "\t" & intToStr(i) & "\t" & $last_depth
 
     last_start = i
-    last_cov = cov
+    last_depth = depth
 
-proc inc_coverage*(c: Cigar, ipos: int = 0, arr: var seq[uint16], qname: string="") {. inline .} =
+proc inc_coverage*(c: Cigar, ipos: int = 0, arr: var seq[int16]) {. inline .} =
   if c.len == 1 and c[0].op == CigarOp(match):
-    for i in ipos..<(ipos + c[0].len):
-       arr[i] += 1
+    inc(arr[ipos])
+    dec(arr[ipos + c[0].len])
     return
 
   var pos = ipos
-  var last: Range = (0, 0)
+  var last_stop = 0
   for op in c:
     if not op.consumes_reference:
       continue
     var olen = op.len
     if op.consumes_query:
-      if pos != last.stop:
-        for i in last.start..<last.stop:
-          arr[i] += 1
-        last = (pos, pos+olen)
+      if pos != last_stop:
+        inc(arr[pos]) # increment the incoming pos
+        if last_stop != 0:
+          dec(arr[last_stop]) # and the last stop before overwriting
+        last_stop = pos + olen
       else:
-        last.stop = pos + olen
+        last_stop = pos + olen
     pos += olen
-  for i in last.start..<last.stop:
-    arr[i] += 1
+  if last_stop != 0:
+    dec(arr[last_stop])
 
 iterator regions(bam: Bam, region: string): Record =
   if region == nil:
@@ -48,13 +55,17 @@ iterator regions(bam: Bam, region: string): Record =
       yield r
 
 proc main(path: string, threads:int=0, mapq:int= -1, region: string = "") =
+  GC_disableMarkAndSweep()
+  discard setvbuf(stdout, nil, 0, 16384)
   var bam = hts.open_hts(path, threads=threads, index=true)
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
-  var arr: seq[uint16]
+  var arr: seq[int16]
+  var mate: Record
   #var heap = bh.new_heap[hts.Range]() do (a, b: Range) -> int:
   #  return a.start - b.start
+  var seen = newTable[string, Record]()
   for rec in bam.regions(region):
     if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
     if int(rec.qual) < mapq: continue
@@ -62,8 +73,27 @@ proc main(path: string, threads:int=0, mapq:int= -1, region: string = "") =
         if tgt != nil:
           dump(arr, tgt.name)
         tgt = seqs[rec.b.core.tid]
-        arr = new_seq[uint16](tgt.length)
-    inc_coverage(rec.cigar, rec.start, arr, rec.qname)
+        arr = new_seq[int16](tgt.length)
+        seen.clear()
+    # rec:   --------------
+    # mate:             ------------
+    # handle overlapping mate pairs.
+    if rec.flag.proper_pair:
+      if rec.stop > rec.matepos and rec.start < rec.matepos:
+        seen[rec.qname] = rec.copy()
+      else:
+        if seen.take(rec.qname, mate):
+          # we have an overlapping pair, and we know that mate is lower. e.g
+          # mate:   --------------
+          # rec:             ------------
+          # decrement:       -----
+          dec(arr[rec.start])
+          inc(arr[mate.stop])
+          #assert rec.start < mate.stop
+          #stderr.write_line rec, " -> ", rec.cigar
+          #stderr.write_line mate, " -> ", rec.cigar
+          #stderr.write_line rec.start, "...", mate.stop
+    inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
     dump(arr, tgt.name)
@@ -75,7 +105,7 @@ when(isMainModule):
 
   Usage: nimdepth [options] <BAM>
   
-  -t --threads <threads>  number of threads to use [default: 1]
+  -t --threads <threads>  number of threads to use [default: 0]
   -Q --mapq <mapq>        mapping quality threshold [default: 0]
   -r --region <region>    region to restrict depth calc.
   -h --help               show help
