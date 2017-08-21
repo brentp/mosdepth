@@ -12,17 +12,21 @@ proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.impor
 proc dump(arr: seq[int16], chrom: string) =
   var
     last_start = -1
-    last_depth = 0
+    last_depth = -1
     depth = 0
+    i = -1
   
-  for i, change in pairs(arr):
+  for change in arr:
+    inc(i)
     depth += int(change)
     if depth == last_depth: continue
-    if last_depth != 0:
-      stdout.write_line chrom & "\t" & intToStr(last_start) & "\t" & intToStr(i) & "\t" & $last_depth
+    if last_depth != -1:
+      stdout.write_line chrom & "\t" & intToStr(i) & "\t" & $last_depth
 
     last_start = i
     last_depth = depth
+  if last_depth != -1:
+    stdout.write_line chrom & "\t" & intToStr(i) & "\t" & $last_depth
 
 type
   pair = tuple[pos: int, value: int16]
@@ -37,11 +41,13 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair =
   else:
     var pos = ipos
     var last_stop = 0
+    var con: Consume
     for op in c:
-      if not op.consumes_reference:
+      con = op.consumes
+      if not con.reference:
         continue
       var olen = op.len
-      if op.consumes_query:
+      if con.query:
         if pos != last_stop:
           yield (pos, int16(1))
           if last_stop != 0:
@@ -66,7 +72,7 @@ iterator regions(bam: Bam, region: string): Record =
 proc main(path: string, threads:int=0, mapq:int= -1, region: string = "") =
   GC_disableMarkAndSweep()
   discard setvbuf(stdout, nil, 0, 16384)
-  var bam = hts.open_hts(path, threads=threads, index=true)
+  var bam = hts.open_hts(path, threads=threads, index=region != nil)
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
