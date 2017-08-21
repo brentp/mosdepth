@@ -3,16 +3,17 @@ import tables
 import strutils as S
 import algorithm as alg
 import sequtils as sequtils
+import strutils as su
 import os
 import docopt
 import tables
 
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
 type
-  pair = tuple[pos: int, value: int16]
+  pair = tuple[pos: int, value: int32]
   depth_t = tuple[pos: int, value: int]
 
-iterator gen_depths(arr: seq[int16]): depth_t =
+iterator gen_depths(arr: seq[int32], window: int): depth_t =
   var
     last_start = -1
     last_depth = -1
@@ -22,7 +23,7 @@ iterator gen_depths(arr: seq[int16]): depth_t =
   for change in arr:
     inc(i)
     depth += int(change)
-    if depth == last_depth: continue
+    if depth == last_depth and (window == 0 or (i mod window) != 0): continue
     if last_depth != -1:
       yield (i, last_depth)
 
@@ -31,26 +32,57 @@ iterator gen_depths(arr: seq[int16]): depth_t =
   if last_depth != -1:
     yield (i, last_depth)
 
-proc bywindow(arr: seq[int16], chrom: string, window: int) =
-  echo "TODO"
+proc scale(a: var seq[float64], n: int, window: float64) =
+  for i, x in a[0 .. <n]:
+    a[i] = x / window
 
-proc dump(arr: seq[int16], chrom: string) =
-  for p in gen_depths(arr):
-    stdout.write_line chrom & "\t" & intToStr(p.pos) & "\t" & intToStr(p.value)
+proc scaled_sum(depths: seq[int], weights: seq[float64], n: int): float64 =
+  result = float64(0)
+  var i = 0
+  for d in depths[0 .. < n]:
+    result += float64(d) * weights[i]
+    inc(i)
 
-proc write_depth(arr: seq[int16], chrom: string, window: int) =
+proc bywindow(arr: seq[int32], chrom: string, window: int) =
+  var weights = new_seq[float64](window)
+  var depths = new_seq[int](window)
+  var last_pos = 0
+  var n = 1
+  var tchrom = chrom & "\t"
+  for p in gen_depths(arr, window):
+    depths[n] = p.value
+    weights[n] = float64(p.pos - last_pos)
+    if p.pos mod window == 0:
+      scale(weights, n, float64(window))
+      var dp = su.format_float(scaled_sum(depths, weights, n), ffDecimal, precision=3)
+      su.trim_zeros(dp)
+      stdout.write_line tchrom & intToStr(p.pos - window) & "\t" & intToStr(p.pos) & "\t" & dp
+      n = 0
+    inc(n)
+    last_pos = p.pos
+  if n > 0:
+    scale(weights, n, float64(window))
+    var dp = scaled_sum(depths, weights, n)
+    stdout.write_line tchrom & intToStr(last_pos) & "\t" & intToStr(len(arr)) & "\t" & $dp
+
+proc dump(arr: seq[int32], chrom: string) =
+  var tchrom = chrom & "\t"
+  for p in gen_depths(arr, 0):
+    stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
+
+proc write_depth(arr: seq[int32], chrom: string, window: int) =
   if window == 0:
-    by_window(arr, chrom, window)
-  else:
     dump(arr, chrom)
+  else:
+    by_window(arr, chrom, window)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
 
 iterator gen_start_ends(c: Cigar, ipos: int): pair =
   if c.len == 1 and c[0].op == CigarOp(match):
-    yield (ipos, int16(1))
-    yield (ipos + c[0].len, int16(-1))
+    yield (ipos, int32(1))
+    yield (ipos + c[0].len, int32(-1))
   else:
     var pos = ipos
     var last_stop = 0
@@ -62,15 +94,15 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair =
       var olen = op.len
       if con.query:
         if pos != last_stop:
-          yield (pos, int16(1))
+          yield (pos, int32(1))
           if last_stop != 0:
-            yield (last_stop, int16(-1))
+            yield (last_stop, int32(-1))
         last_stop = pos + olen
       pos += olen
     if last_stop != 0:
-      yield (last_stop, int16(-1))
+      yield (last_stop, int32(-1))
 
-proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int16]) {. inline .} =
+proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {. inline .} =
   for p in gen_start_ends(c, ipos):
     arr[p.pos] += p.value
 
@@ -82,14 +114,14 @@ iterator regions(bam: Bam, region: string): Record =
     for r in bam.querys(region):
       yield r
 
-proc main(path: string, threads:int=0, mapq:int= -1, region: string = "", window: int=(-1)) =
+proc main(path: string, threads:int=0, mapq:int= -1, region: string = "", window: int=0) =
   GC_disableMarkAndSweep()
   discard setvbuf(stdout, nil, 0, 16384)
   var bam = hts.open_hts(path, threads=threads, index=region != nil)
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
-  var arr: seq[int16]
+  var arr: seq[int32]
   var mate: Record
   #var heap = bh.new_heap[hts.Range]() do (a, b: Range) -> int:
   #  return a.start - b.start
@@ -101,7 +133,7 @@ proc main(path: string, threads:int=0, mapq:int= -1, region: string = "", window
         if tgt != nil:
           write_depth(arr, tgt.name, window)
         tgt = seqs[rec.b.core.tid]
-        arr = new_seq[int16](tgt.length)
+        arr = new_seq[int32](tgt.length)
         seen.clear()
     # rec:   --------------
     # mate:             ------------
