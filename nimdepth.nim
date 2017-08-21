@@ -8,8 +8,11 @@ import docopt
 import tables
 
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
+type
+  pair = tuple[pos: int, value: int16]
+  depth_t = tuple[pos: int, value: int]
 
-proc dump(arr: seq[int16], chrom: string) =
+iterator gen_depths(arr: seq[int16]): depth_t =
   var
     last_start = -1
     last_depth = -1
@@ -21,15 +24,25 @@ proc dump(arr: seq[int16], chrom: string) =
     depth += int(change)
     if depth == last_depth: continue
     if last_depth != -1:
-      stdout.write_line chrom & "\t" & intToStr(i) & "\t" & $last_depth
+      yield (i, last_depth)
 
     last_start = i
     last_depth = depth
   if last_depth != -1:
-    stdout.write_line chrom & "\t" & intToStr(i) & "\t" & $last_depth
+    yield (i, last_depth)
 
-type
-  pair = tuple[pos: int, value: int16]
+proc bywindow(arr: seq[int16], chrom: string, window: int) =
+  echo "TODO"
+
+proc dump(arr: seq[int16], chrom: string) =
+  for p in gen_depths(arr):
+    stdout.write_line chrom & "\t" & intToStr(p.pos) & "\t" & intToStr(p.value)
+
+proc write_depth(arr: seq[int16], chrom: string, window: int) =
+  if window == 0:
+    by_window(arr, chrom, window)
+  else:
+    dump(arr, chrom)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -69,7 +82,7 @@ iterator regions(bam: Bam, region: string): Record =
     for r in bam.querys(region):
       yield r
 
-proc main(path: string, threads:int=0, mapq:int= -1, region: string = "") =
+proc main(path: string, threads:int=0, mapq:int= -1, region: string = "", window: int=(-1)) =
   GC_disableMarkAndSweep()
   discard setvbuf(stdout, nil, 0, 16384)
   var bam = hts.open_hts(path, threads=threads, index=region != nil)
@@ -86,7 +99,7 @@ proc main(path: string, threads:int=0, mapq:int= -1, region: string = "") =
     if int(rec.qual) < mapq: continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
-          dump(arr, tgt.name)
+          write_depth(arr, tgt.name, window)
         tgt = seqs[rec.b.core.tid]
         arr = new_seq[int16](tgt.length)
         seen.clear()
@@ -139,7 +152,7 @@ proc main(path: string, threads:int=0, mapq:int= -1, region: string = "") =
     inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
-    dump(arr, tgt.name)
+    write_depth(arr, tgt.name, window)
 
 when(isMainModule):
 
@@ -151,10 +164,18 @@ when(isMainModule):
   -t --threads <threads>  number of threads to use [default: 0]
   -Q --mapq <mapq>        mapping quality threshold [default: 0]
   -r --region <region>    region to restrict depth calc.
+  -w --window <window>    window-size.
   -h --help               show help
   """
 
   let args = docopt(doc, version = "nimdepth 0.1.1")
-  var mapq = S.parse_int($args["--mapq"])
+  let mapq = S.parse_int($args["--mapq"])
+  var window = 0
+  if $args["--window"] != "nil":
+    window = S.parse_int($args["--window"])
+  var region: string
+  if $args["--region"] != "nil": 
+    region = $args["--region"]
 
-  main($args["<BAM>"], S.parse_int($args["--threads"]), mapq, region=($args["--region"]))
+
+  main($args["<BAM>"], S.parse_int($args["--threads"]), mapq, region=region, window=window)
