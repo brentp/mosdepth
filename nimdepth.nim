@@ -61,9 +61,11 @@ proc bywindow(arr: seq[int32], chrom: string, window: int) =
     inc(n)
     last_pos = p.pos
   if n > 0:
-    scale(weights, n, float64(window))
-    var dp = scaled_sum(depths, weights, n)
-    stdout.write_line tchrom & intToStr(last_pos) & "\t" & intToStr(len(arr)) & "\t" & $dp
+    var left = (len(arr) mod window)
+    scale(weights, n, float64(left))
+    var dp = su.format_float(scaled_sum(depths, weights, n), ffDecimal, precision=3)
+    su.trim_zeros(dp)
+    stdout.write_line tchrom & intToStr(len(arr) - left) & "\t" & intToStr(len(arr)) & "\t" & dp
 
 proc dump(arr: seq[int32], chrom: string) =
   var tchrom = chrom & "\t"
