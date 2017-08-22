@@ -12,8 +12,6 @@ proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.impor
 type
   pair = tuple[pos: int, value: int32]
   depth_t = tuple[pos: int, value: int]
-
-type
   region_t = ref object
     chrom: string
     start: int
@@ -28,16 +26,22 @@ proc `$`(r: region_t): string =
   else:
     return format("$1:$2", r.chrom, r.start + 1)
 
-iterator gen_depths(arr: seq[int32], window: int): depth_t =
+iterator gen_depths(arr: seq[int32], window: int, stop: var int): depth_t =
+  # given `arr` with values in each index indicating the number of reads
+  # starting or ending at that location, generate depths.
   var
     last_start = -1
     last_depth = -1
     depth = 0
     i = -1
+  if stop <= 0:
+    stop = len(arr)
   
   for change in arr:
     inc(i)
     depth += int(change)
+    if i == stop:
+      break
     if depth == last_depth and (window == 0 or (i mod window) != 0): continue
     if last_depth != -1:
       yield (i, last_depth)
@@ -47,11 +51,9 @@ iterator gen_depths(arr: seq[int32], window: int): depth_t =
   if last_depth != -1:
     yield (i, last_depth)
 
-proc scale(a: var seq[float64], n: int, window: float64) {. inline .} =
-  for i, x in a[0 .. <n]:
-    a[i] = x / window
-
-proc scaled_sum(depths: seq[int], weights: seq[float64], n: int): float64 =
+proc scaled_sum(depths: seq[int], weights: var seq[float64], n: int, window: float64): float64 =
+  for i, x in weights[0 .. <n]:
+    weights[i] = x / window
   result = float64(0)
   var i = 0
   for d in depths[0 .. < n]:
@@ -60,44 +62,45 @@ proc scaled_sum(depths: seq[int], weights: seq[float64], n: int): float64 =
 
 proc by_window(arr: seq[int32], chrom: string, window: int, region: region_t) =
   # discretize the depth by window.
-  # TODO: region
+  # in some cases, window will split a region and in other cases, a region
+  # will define the window. e.g. region = chr1:1000-2500 and window = 1500
   var weights = new_seq[float64](window)
   var depths = new_seq[int](window)
+  var stop = len(arr)
+  var start = 0
+  if region != nil:
+    stop = region.stop
+    start = region.start
   var last_pos = 0
   var n = 1
   var tchrom = chrom & "\t"
-  for p in gen_depths(arr, window):
+  for p in gen_depths(arr, window, stop):
     depths[n] = p.value
     weights[n] = float64(p.pos - last_pos)
-    if p.pos mod window == 0:
-      scale(weights, n, float64(window))
-      var dp = su.format_float(scaled_sum(depths, weights, n), ffDecimal, precision=3)
+    if (p.pos - start) mod window == 0:
+      var dp = su.format_float(scaled_sum(depths, weights, n, float64(window)), ffDecimal, precision=3)
       su.trim_zeros(dp)
       stdout.write_line tchrom & intToStr(p.pos - window) & "\t" & intToStr(p.pos) & "\t" & dp
       n = 0
+      if stop != 0 and p.pos == stop:
+        return
     inc(n)
     if region != nil and region.stop != 0 and p.pos >= region.stop:
       break
     last_pos = p.pos
   if n > 0:
-    var left = (len(arr) mod window)
-    scale(weights, n, float64(left))
-    var dp = su.format_float(scaled_sum(depths, weights, n), ffDecimal, precision=3)
+    var left = (stop mod window)
+    var dp = su.format_float(scaled_sum(depths, weights, n, float64(left)), ffDecimal, precision=3)
     su.trim_zeros(dp)
-    stdout.write_line tchrom & intToStr(len(arr) - left) & "\t" & intToStr(len(arr)) & "\t" & dp
+    stdout.write_line tchrom & intToStr(stop - left) & "\t" & intToStr(stop) & "\t" & dp
 
 proc dump(arr: seq[int32], chrom: string, region: region_t) =
   var tchrom = chrom & "\t"
+  var stop = 0
   if region != nil and region.stop != 0:
-    for p in gen_depths(arr, 0):
-      if p.pos >= region.stop:
-          stderr.write_line p.pos, " ", region.stop, " ", len(arr)
-          stdout.write_line tchrom & intToStr(region.stop) & "\t" & intToStr(p.value)
-          break
-      stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
-  else:
-    for p in gen_depths(arr, 0):
-      stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
+    stop = region.stop
+  for p in gen_depths(arr, 0, stop):
+    stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
 
 proc write_depth(arr: seq[int32], chrom: string, window: int, region: region_t) =
   if window == 0:
@@ -109,6 +112,7 @@ proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
 
 iterator gen_start_ends(c: Cigar, ipos: int): pair =
+  # generate start, end pairs given a cigar string and a position offset.
   if c.len == 1 and c[0].op == CigarOp(match):
     yield (ipos, int32(1))
     yield (ipos + c[0].len, int32(-1))
@@ -219,6 +223,8 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
             #if len(ses) > 4: stderr.write_line ses
             for p in ses:
               assert pair_depth <= 2
+              # if we are at pair_depth 2, there is overlap and when the incoming
+              # value is -1, then it is dropping back down to 1.
               if p.value == -1 and pair_depth == 2:
                 #if len(ses) > 4: stderr.write_line last_pos, " ", p.pos
                 dec(arr[last_pos])
@@ -228,9 +234,10 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
             assert pair_depth == 0
 
     inc_coverage(rec.cigar, rec.start, arr)
-
   if tgt != nil:
     write_depth(arr, tgt.name, window, region)
+  elif region != nil:
+    write_depth(arr, region.chrom, window, region)
 
 proc bed_main(bam: hts.Bam, bed: string, thread:int=0, mapq:int= -1, window:int=0) =
   var hf = hts.hts_open(cstring(bed), "r")
