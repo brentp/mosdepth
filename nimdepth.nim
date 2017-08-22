@@ -21,92 +21,48 @@ proc length(r: region_t): int =
   return r.stop - r.start
 
 proc `$`(r: region_t): string =
+  if r == nil:
+    return nil
   if r.stop != 0:
     return format("$1:$2-$3", r.chrom, r.start + 1, r.stop)
   else:
     return format("$1:$2", r.chrom, r.start + 1)
 
-iterator gen_depths(arr: seq[int32], window: int, stop: var int): depth_t =
+iterator gen_depths(arr: seq[int32], offset: int, istop: int): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
+  # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
   var
-    last_start = -1
     last_depth = -1
     depth = 0
     i = -1
+    last_i = -1
+    stop = istop
   if stop <= 0:
     stop = len(arr)
-  
+  # even with an offset, have to start from the beginning of the array
+  # to get the proper depth.
   for change in arr:
     inc(i)
     depth += int(change)
-    if i == stop:
+    if i >= stop:
       break
-    if depth == last_depth and (window == 0 or (i mod window) != 0): continue
+    if i < offset: continue
+
+    if depth == last_depth: continue
     if last_depth != -1:
       yield (i, last_depth)
 
-    last_start = i
     last_depth = depth
-  if last_depth != -1:
+    last_i = i
+
+  if last_depth != -1 and last_i != i:
     yield (i, last_depth)
 
-proc scaled_sum(depths: seq[int], weights: var seq[float64], n: int, window: float64): float64 =
-  for i, x in weights[0 .. <n]:
-    weights[i] = x / window
-  result = float64(0)
-  var i = 0
-  for d in depths[0 .. < n]:
-    result += float64(d) * weights[i]
-    inc(i)
-
-proc by_window(arr: seq[int32], chrom: string, window: int, region: region_t) =
-  # discretize the depth by window.
-  # in some cases, window will split a region and in other cases, a region
-  # will define the window. e.g. region = chr1:1000-2500 and window = 1500
-  var weights = new_seq[float64](window)
-  var depths = new_seq[int](window)
-  var stop = len(arr)
-  var start = 0
-  if region != nil:
-    stop = region.stop
-    start = region.start
-  var last_pos = 0
-  var n = 1
+proc write_depth(arr: seq[int32], chrom: string) =
   var tchrom = chrom & "\t"
-  for p in gen_depths(arr, window, stop):
-    depths[n] = p.value
-    weights[n] = float64(p.pos - last_pos)
-    if (p.pos - start) mod window == 0:
-      var dp = su.format_float(scaled_sum(depths, weights, n, float64(window)), ffDecimal, precision=3)
-      su.trim_zeros(dp)
-      stdout.write_line tchrom & intToStr(p.pos - window) & "\t" & intToStr(p.pos) & "\t" & dp
-      n = 0
-      if stop != 0 and p.pos == stop:
-        return
-    inc(n)
-    if region != nil and region.stop != 0 and p.pos >= region.stop:
-      break
-    last_pos = p.pos
-  if n > 0:
-    var left = (stop mod window)
-    var dp = su.format_float(scaled_sum(depths, weights, n, float64(left)), ffDecimal, precision=3)
-    su.trim_zeros(dp)
-    stdout.write_line tchrom & intToStr(stop - left) & "\t" & intToStr(stop) & "\t" & dp
-
-proc dump(arr: seq[int32], chrom: string, region: region_t) =
-  var tchrom = chrom & "\t"
-  var stop = 0
-  if region != nil and region.stop != 0:
-    stop = region.stop
-  for p in gen_depths(arr, 0, stop):
+  for p in gen_depths(arr, 0, 0):
     stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
-
-proc write_depth(arr: seq[int32], chrom: string, window: int, region: region_t) =
-  if window == 0:
-    dump(arr, chrom, region)
-  else:
-    by_window(arr, chrom, window, region)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -137,14 +93,22 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair =
 
 proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {. inline .} =
   for p in gen_start_ends(c, ipos):
-    arr[p.pos] += p.value
+      arr[p.pos] += p.value
 
 iterator regions(bam: hts.Bam, region: region_t): Record =
   if region == nil:
     for r in bam:
       yield r
   elif region != nil:
-    for r in bam.querys($region):
+    var stop = region.stop
+    if stop == 0:
+      for tgt in bam.hdr.targets:
+        if tgt.name == region.chrom:
+          stop = int(tgt.length)
+          break
+    if stop == 0:
+      quit(format("chromosome: $1 not found", region.chrom))
+    for r in bam.query(region.chrom, region.start, stop):
       yield r
 
 proc bed_line_to_region(line: string): region_t =
@@ -155,7 +119,7 @@ proc bed_line_to_region(line: string): region_t =
    return reg
 
 proc region_line_to_region(region: string): region_t =
-  if region == nil:
+  if region == nil or region == "" or region == "nil":
     return nil
   var i = 0
   var r = region_t()
@@ -169,7 +133,7 @@ proc region_line_to_region(region: string): region_t =
     inc(i)
   return r
 
-proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, window: int=0) =
+proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1) =
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
@@ -177,26 +141,23 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
   var seen = newTable[string, Record]()
 
   for rec in bam.regions(region):
-    if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
     if int(rec.qual) < mapq: continue
+    if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
-          write_depth(arr, tgt.name, window, region)
+          write_depth(arr, tgt.name)
           flushFile(stdout)
         tgt = seqs[rec.b.core.tid]
-        if arr == nil or len(arr) != int(tgt.length):
+        if arr == nil or len(arr) != int(tgt.length+1):
           # must create a new array in some cases.
-          if arr == nil or len(arr) < int(tgt.length):
-            arr = new_seq[int32](tgt.length)
+          if arr == nil or len(arr) < int(tgt.length+1):
+            arr = new_seq[int32](tgt.length+1)
           else:
             # otherwise can re-use and zero
-            arr.set_len(int(tgt.length))
+            arr.set_len(int(tgt.length)+1)
             for i in 0..<len(arr):
               arr[i] = 0
 
-        elif region != nil:
-          for i in region.start .. <region.stop:
-            arr[i] = 0
         seen.clear()
     # rec:   --------------
     # mate:             ------------
@@ -247,13 +208,13 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
             assert pair_depth == 0
 
     inc_coverage(rec.cigar, rec.start, arr)
+
   if tgt != nil:
-    write_depth(arr, tgt.name, window, region)
-  elif region != nil:
-    write_depth(arr, region.chrom, window, region)
+    write_depth(arr, tgt.name)
   flushFile(stdout)
 
-proc bed_main(bam: hts.Bam, bed: string, thread:int=0, mapq:int= -1, window:int=0) =
+proc bed_main(path: string, bed: string, threads:int=0, mapq:int= -1) =
+  var bam = hts.open_hts(path, threads=1, index=true)
   var hf = hts.hts_open(cstring(bed), "r")
   var kstr: hts.kstring_t
   var arr: seq[int32]
@@ -262,7 +223,7 @@ proc bed_main(bam: hts.Bam, bed: string, thread:int=0, mapq:int= -1, window:int=
   kstr.s = nil
   while hts_getline(hf, cint(10), addr kstr) > 0:
     var rl = bed_line_to_region($kstr.s)
-    main(bam, arr, rl, mapq, window=rl.length)
+    #main(bam, arr, rl, mapq)
 
   hts.free(kstr.s)
 
@@ -274,34 +235,22 @@ when(isMainModule):
   Usage: nimdepth [options] <BAM>
   
   -t --threads <threads>  number of threads to use [default: 0]
+  -c --chrom <chrom>      chromosome to restrict depth calculation.
   -Q --mapq <mapq>        mapping quality threshold [default: 0]
-  -r --region <region>    region to restrict depth calc.
   -L --bed <bed>          BED file of regions for which to calculate depth.
-                          Can not be used with `--region`.
-  -w --window <window>    window-size.
   -h --help               show help
   """
 
   let args = docopt(doc, version = "nimdepth 0.1.1")
   let mapq = S.parse_int($args["--mapq"])
-  var window = 0
   var bed_based = false 
-  if $args["--window"] != "nil":
-    window = S.parse_int($args["--window"])
-  var region: string
-  if $args["--region"] != "nil":
-    region = $args["--region"]
-    assert $args["--bed"] == "nil"
-  elif $args["--bed"] != "nil":
+  if $args["--bed"] != "nil":
     bed_based = true
   GC_disableMarkAndSweep()
   discard setvbuf(stdout, nil, 0, 16384)
   var arr : seq[int32]
 
-  if bed_based:
-    var bam = hts.open_hts($args["<BAM>"], threads=1, index=true)
-    bed_main(bam, $args["--bed"], S.parse_int($args["--threads"]), mapq, window=window)
-  else:
-    var threads = S.parse_int($args["--threads"])
-    var bam = hts.open_hts($args["<BAM>"], threads=threads, index=region != nil)
-    main(bam, arr, region_line_to_region(region), mapq, window=window)
+  var threads = S.parse_int($args["--threads"])
+  var chrom = region_line_to_region($args["--chrom"])
+  var bam = hts.open_hts($args["<BAM>"], threads=threads, index=chrom != nil)
+  main(bam, arr, chrom, mapq)
