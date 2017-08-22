@@ -182,8 +182,21 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
           write_depth(arr, tgt.name, window, region)
+          flushFile(stdout)
         tgt = seqs[rec.b.core.tid]
-        arr = new_seq[int32](tgt.length)
+        if arr == nil or len(arr) != int(tgt.length):
+          # must create a new array in some cases.
+          if arr == nil or len(arr) < int(tgt.length):
+            arr = new_seq[int32](tgt.length)
+          else:
+            # otherwise can re-use and zero
+            arr.set_len(int(tgt.length))
+            for i in 0..<len(arr):
+              arr[i] = 0
+
+        elif region != nil:
+          for i in region.start .. <region.stop:
+            arr[i] = 0
         seen.clear()
     # rec:   --------------
     # mate:             ------------
@@ -238,6 +251,7 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
     write_depth(arr, tgt.name, window, region)
   elif region != nil:
     write_depth(arr, region.chrom, window, region)
+  flushFile(stdout)
 
 proc bed_main(bam: hts.Bam, bed: string, thread:int=0, mapq:int= -1, window:int=0) =
   var hf = hts.hts_open(cstring(bed), "r")
