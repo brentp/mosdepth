@@ -32,7 +32,7 @@ iterator gen_depths(arr: seq[int32], window: int): depth_t =
   if last_depth != -1:
     yield (i, last_depth)
 
-proc scale(a: var seq[float64], n: int, window: float64) =
+proc scale(a: var seq[float64], n: int, window: float64) {. inline .} =
   for i, x in a[0 .. <n]:
     a[i] = x / window
 
@@ -44,6 +44,7 @@ proc scaled_sum(depths: seq[int], weights: seq[float64], n: int): float64 =
     inc(i)
 
 proc bywindow(arr: seq[int32], chrom: string, window: int) =
+  # discretize the depth by window.
   var weights = new_seq[float64](window)
   var depths = new_seq[int](window)
   var last_pos = 0
@@ -108,7 +109,7 @@ proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {. inline .} =
   for p in gen_start_ends(c, ipos):
     arr[p.pos] += p.value
 
-iterator regions(bam: Bam, region: string): Record =
+iterator regions(bam: hts.Bam, region: string): Record =
   if region == nil:
     for r in bam:
       yield r
@@ -116,19 +117,43 @@ iterator regions(bam: Bam, region: string): Record =
     for r in bam.querys(region):
       yield r
 
-proc main(path: string, threads:int=0, mapq:int= -1, region: string = "", window: int=0) =
-  GC_disableMarkAndSweep()
-  discard setvbuf(stdout, nil, 0, 16384)
-  var bam = hts.open_hts(path, threads=threads, index=region != nil)
+type
+  region_t = tuple[chrom: string, start: int, stop: int]
+
+proc length(r: region_t): int =
+  return r.stop - r.start
+
+proc `$`(r: region_t): string =
+  return format("$1:$2-$3", r.chrom, r.start + 1, r.stop)
+
+
+proc bed_line_to_region(line: string): region_t =
+   var cse = sequtils.to_seq(line.strip().split("\t"))
+   var s = S.parse_int(cse[1])
+   var e = S.parse_int(cse[2])
+   return (cse[0], s, e)
+
+proc region_line_to_region(region: string): region_t =
+  var i = 0
+  var r: region_t
+  for w in region.split({':', '-'}):
+    if i == 1:
+      r.start = S.parse_int(w) - 1
+    elif i == 2:
+      r.stop = S.parse_int(w)
+    else:
+      r.chrom = w
+    inc(i)
+  return r
+
+proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, window: int=0) =
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
-  var arr: seq[int32]
   var mate: Record
-  #var heap = bh.new_heap[hts.Range]() do (a, b: Range) -> int:
-  #  return a.start - b.start
   var seen = newTable[string, Record]()
-  for rec in bam.regions(region):
+
+  for rec in bam.regions($region):
     if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
     if int(rec.qual) < mapq: continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
@@ -188,6 +213,19 @@ proc main(path: string, threads:int=0, mapq:int= -1, region: string = "", window
   if tgt != nil:
     write_depth(arr, tgt.name, window)
 
+proc bed_main(bam: hts.Bam, bed: string, thread:int=0, mapq:int= -1, window:int=0) =
+  var hf = hts.hts_open(cstring(bed), "r")
+  var kstr: hts.kstring_t
+  var arr: seq[int32]
+  kstr.l = 0
+  kstr.m = 0
+  kstr.s = nil
+  while hts_getline(hf, cint(10), addr kstr) > 0:
+    var rl = bed_line_to_region($kstr.s)
+    main(bam, arr, rl, mapq, window=rl.length)
+
+  hts.free(kstr.s)
+
 when(isMainModule):
 
   let doc = """
@@ -198,6 +236,8 @@ when(isMainModule):
   -t --threads <threads>  number of threads to use [default: 0]
   -Q --mapq <mapq>        mapping quality threshold [default: 0]
   -r --region <region>    region to restrict depth calc.
+  -L --bed <bed>          BED file of regions for which to calculate depth.
+                          Can not be used with `--region`.
   -w --window <window>    window-size.
   -h --help               show help
   """
@@ -205,11 +245,23 @@ when(isMainModule):
   let args = docopt(doc, version = "nimdepth 0.1.1")
   let mapq = S.parse_int($args["--mapq"])
   var window = 0
+  var bed_based = false 
   if $args["--window"] != "nil":
     window = S.parse_int($args["--window"])
   var region: string
-  if $args["--region"] != "nil": 
+  if $args["--region"] != "nil":
     region = $args["--region"]
+    assert $args["--bed"] == "nil"
+  elif $args["--bed"] != "nil":
+    bed_based = true
+  GC_disableMarkAndSweep()
+  discard setvbuf(stdout, nil, 0, 16384)
+  var arr : seq[int32]
 
-
-  main($args["<BAM>"], S.parse_int($args["--threads"]), mapq, region=region, window=window)
+  if bed_based:
+    var bam = hts.open_hts($args["<BAM>"], threads=1, index=true)
+    bed_main(bam, $args["--bed"], S.parse_int($args["--threads"]), mapq, window=window)
+  else:
+    var threads = S.parse_int($args["--threads"])
+    var bam = hts.open_hts($args["<BAM>"], threads=threads, index=region != nil)
+    main(bam, arr, region_line_to_region(region), mapq, window=window)
