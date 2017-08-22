@@ -11,7 +11,7 @@ import tables
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
 type
   pair = tuple[pos: int, value: int32]
-  depth_t = tuple[pos: int, value: int]
+  depth_t = tuple[pos: int, value: int, tid: uint32]
   region_t = ref object
     chrom: string
     start: int
@@ -28,7 +28,7 @@ proc `$`(r: region_t): string =
   else:
     return format("$1:$2", r.chrom, r.start + 1)
 
-iterator gen_depths(arr: seq[int32], offset: int, istop: int): depth_t =
+iterator gen_depths(arr: seq[int32], offset: int, istop: int, tid: uint32): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
@@ -51,18 +51,13 @@ iterator gen_depths(arr: seq[int32], offset: int, istop: int): depth_t =
 
     if depth == last_depth: continue
     if last_depth != -1:
-      yield (i, last_depth)
+      yield (i, last_depth, tid)
 
     last_depth = depth
     last_i = i
 
   if last_depth != -1 and last_i != i:
-    yield (i, last_depth)
-
-proc write_depth(arr: seq[int32], chrom: string) =
-  var tchrom = chrom & "\t"
-  for p in gen_depths(arr, 0, 0):
-    stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
+    yield (i, last_depth, tid)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -133,7 +128,7 @@ proc region_line_to_region(region: string): region_t =
     inc(i)
   return r
 
-proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1) =
+iterator depth(bam: hts.Bam, arr: var seq[int32], region: var region_t, mapq:int= -1): depth_t =
   var seqs = bam.hdr.targets
 
   var tgt: hts.Target
@@ -145,7 +140,7 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1) =
     if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
-          write_depth(arr, tgt.name)
+          for p in gen_depths(arr, 0, 0, uint32(tgt.tid)): yield p
           flushFile(stdout)
         tgt = seqs[rec.b.core.tid]
         if arr == nil or len(arr) != int(tgt.length+1):
@@ -210,7 +205,7 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1) =
     inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
-    write_depth(arr, tgt.name)
+    for p in gen_depths(arr, 0, 0, uint32(tgt.tid)): yield p
   flushFile(stdout)
 
 proc bed_main(path: string, bed: string, threads:int=0, mapq:int= -1) =
@@ -253,4 +248,5 @@ when(isMainModule):
   var threads = S.parse_int($args["--threads"])
   var chrom = region_line_to_region($args["--chrom"])
   var bam = hts.open_hts($args["<BAM>"], threads=threads, index=chrom != nil)
-  main(bam, arr, chrom, mapq)
+  for region in depth(bam, arr, chrom, mapq):
+    echo region
