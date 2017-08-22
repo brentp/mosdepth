@@ -13,6 +13,21 @@ type
   pair = tuple[pos: int, value: int32]
   depth_t = tuple[pos: int, value: int]
 
+type
+  region_t = ref object
+    chrom: string
+    start: int
+    stop: int
+
+proc length(r: region_t): int =
+  return r.stop - r.start
+
+proc `$`(r: region_t): string =
+  if r.stop != 0:
+    return format("$1:$2-$3", r.chrom, r.start + 1, r.stop)
+  else:
+    return format("$1:$2", r.chrom, r.start + 1)
+
 iterator gen_depths(arr: seq[int32], window: int): depth_t =
   var
     last_start = -1
@@ -43,8 +58,9 @@ proc scaled_sum(depths: seq[int], weights: seq[float64], n: int): float64 =
     result += float64(d) * weights[i]
     inc(i)
 
-proc bywindow(arr: seq[int32], chrom: string, window: int) =
+proc by_window(arr: seq[int32], chrom: string, window: int, region: region_t) =
   # discretize the depth by window.
+  # TODO: region
   var weights = new_seq[float64](window)
   var depths = new_seq[int](window)
   var last_pos = 0
@@ -60,6 +76,8 @@ proc bywindow(arr: seq[int32], chrom: string, window: int) =
       stdout.write_line tchrom & intToStr(p.pos - window) & "\t" & intToStr(p.pos) & "\t" & dp
       n = 0
     inc(n)
+    if region != nil and region.stop != 0 and p.pos >= region.stop:
+      break
     last_pos = p.pos
   if n > 0:
     var left = (len(arr) mod window)
@@ -68,16 +86,24 @@ proc bywindow(arr: seq[int32], chrom: string, window: int) =
     su.trim_zeros(dp)
     stdout.write_line tchrom & intToStr(len(arr) - left) & "\t" & intToStr(len(arr)) & "\t" & dp
 
-proc dump(arr: seq[int32], chrom: string) =
+proc dump(arr: seq[int32], chrom: string, region: region_t) =
   var tchrom = chrom & "\t"
-  for p in gen_depths(arr, 0):
-    stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
-
-proc write_depth(arr: seq[int32], chrom: string, window: int) =
-  if window == 0:
-    dump(arr, chrom)
+  if region != nil and region.stop != 0:
+    for p in gen_depths(arr, 0):
+      if p.pos >= region.stop:
+          stderr.write_line p.pos, " ", region.stop, " ", len(arr)
+          stdout.write_line tchrom & intToStr(region.stop) & "\t" & intToStr(p.value)
+          break
+      stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
   else:
-    by_window(arr, chrom, window)
+    for p in gen_depths(arr, 0):
+      stdout.write_line tchrom & intToStr(p.pos) & "\t" & intToStr(p.value)
+
+proc write_depth(arr: seq[int32], chrom: string, window: int, region: region_t) =
+  if window == 0:
+    dump(arr, chrom, region)
+  else:
+    by_window(arr, chrom, window, region)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -109,33 +135,26 @@ proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {. inline .} =
   for p in gen_start_ends(c, ipos):
     arr[p.pos] += p.value
 
-iterator regions(bam: hts.Bam, region: string): Record =
+iterator regions(bam: hts.Bam, region: region_t): Record =
   if region == nil:
     for r in bam:
       yield r
-  else:
-    for r in bam.querys(region):
+  elif region != nil:
+    for r in bam.querys($region):
       yield r
-
-type
-  region_t = tuple[chrom: string, start: int, stop: int]
-
-proc length(r: region_t): int =
-  return r.stop - r.start
-
-proc `$`(r: region_t): string =
-  return format("$1:$2-$3", r.chrom, r.start + 1, r.stop)
-
 
 proc bed_line_to_region(line: string): region_t =
    var cse = sequtils.to_seq(line.strip().split("\t"))
    var s = S.parse_int(cse[1])
    var e = S.parse_int(cse[2])
-   return (cse[0], s, e)
+   var reg = region_t(chrom: cse[0], start:s, stop: e)
+   return reg
 
 proc region_line_to_region(region: string): region_t =
+  if region == nil:
+    return nil
   var i = 0
-  var r: region_t
+  var r = region_t()
   for w in region.split({':', '-'}):
     if i == 1:
       r.start = S.parse_int(w) - 1
@@ -153,12 +172,12 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
   var mate: Record
   var seen = newTable[string, Record]()
 
-  for rec in bam.regions($region):
+  for rec in bam.regions(region):
     if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
     if int(rec.qual) < mapq: continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
-          write_depth(arr, tgt.name, window)
+          write_depth(arr, tgt.name, window, region)
         tgt = seqs[rec.b.core.tid]
         arr = new_seq[int32](tgt.length)
         seen.clear()
@@ -211,7 +230,7 @@ proc main(bam: hts.Bam, arr: var seq[int32], region: region_t, mapq:int= -1, win
     inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
-    write_depth(arr, tgt.name, window)
+    write_depth(arr, tgt.name, window, region)
 
 proc bed_main(bam: hts.Bam, bed: string, thread:int=0, mapq:int= -1, window:int=0) =
   var hf = hts.hts_open(cstring(bed), "r")
