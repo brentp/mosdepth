@@ -11,7 +11,7 @@ import tables
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
 type
   pair = tuple[pos: int, value: int32]
-  depth_t = tuple[pos: int, value: int, tid: uint32]
+  depth_t = tuple[start: uint32, stop: uint32, value: uint32, tid: uint32]
   region_t = ref object
     chrom: string
     start: int
@@ -28,36 +28,47 @@ proc `$`(r: region_t): string =
   else:
     return format("$1:$2", r.chrom, r.start + 1)
 
-iterator gen_depths(arr: seq[int32], offset: int, istop: int, tid: uint32): depth_t =
+iterator gen_depths(arr: seq[int32], offset: uint32, istop: int, tid: uint32): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
   var
     last_depth = -1
     depth = 0
-    i = -1
-    last_i = -1
-    stop = istop
-  if stop <= 0:
-    stop = len(arr)
+    i = uint32(0)
+    last_i = uint32(0)
+    stop: uint32
+    last_yield: bool
+  if istop <= 0:
+    stop = uint32(len(arr)-1)
+  else:
+    stop = uint32(istop)
   # even with an offset, have to start from the beginning of the array
   # to get the proper depth.
   for change in arr:
-    inc(i)
     depth += int(change)
-    if i >= stop:
+    if i == stop:
       break
-    if i < offset: continue
+    last_yield = false
+    if i < offset or depth == last_depth:
+      inc(i)
+      continue
 
-    if depth == last_depth: continue
     if last_depth != -1:
-      yield (i, last_depth, tid)
+      yield (last_i, i, uint32(last_depth), tid)
+      last_yield = true
 
     last_depth = depth
     last_i = i
+    inc(i)
 
-  if last_depth != -1 and last_i != i:
-    yield (i, last_depth, tid)
+  # this is horrible, but it works. we don't know
+  # if we've already printed the record on not.
+  if  last_yield != (last_i == i):
+    if last_i == i:
+      yield (last_i - 1, i, uint32(last_depth), tid)
+    else:
+      yield (last_i, i, uint32(last_depth), tid)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -149,7 +160,7 @@ iterator depth(bam: hts.Bam, arr: var seq[int32], region: var region_t, mapq:int
             arr = new_seq[int32](tgt.length+1)
           else:
             # otherwise can re-use and zero
-            arr.set_len(int(tgt.length)+1)
+            arr.set_len(int(tgt.length+1))
             for i in 0..<len(arr):
               arr[i] = 0
 
@@ -253,9 +264,10 @@ when(isMainModule):
     last_tid = uint32(0)
     target = targets[int(last_tid)].name & "\t"
 
-  stderr.write_line chrom
   for region in depth(bam, arr, chrom, mapq):
     if region.tid != last_tid:
       last_tid = region.tid
       target = targets[int(last_tid)].name & "\t"
-    stdout.write_line(target & intToStr(region.pos) & "\t" & intToStr(region.value))
+    #stdout.write_line(target & intToStr(int(region.start)) & "\t" & intToStr(int(region.stop)) & "\t" & intToStr(int(region.value)))
+    #stdout.write_line(target & intToStr(int(region.stop)) & "\t" & intToStr(int(region.value)))
+    stdout.write_line(intToStr(int(region.stop)) & "\t" & intToStr(int(region.value)))
