@@ -268,6 +268,38 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
     result += float64(vals[int(i)])
   result /= float64(stop-start)
 
+proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
+  var v:int32
+  var L = int32(len(d)-1)
+  for i in start .. <stop:
+    v = coverage[int(i)]
+    if v >= L:
+      d.set_len(v + 10)
+      L = int32(len(d)-1)
+    if v < 0: continue
+    inc(d[v])
+
+proc write_distribution(d: var seq[int32], path:string) =
+  var fh:File
+  if not open(fh, path, fmWrite):
+    stderr.write_line("could not open file:", path)
+    quit(1)
+  var sum: int64
+  for v in d: sum += int64(v)
+  var cum: float64 = 0
+  # reverse and then cumsum so that e.g. a value of 1 is the proportion of
+  # bases with a coverage of at least 1.
+  reverse(d)
+  # skip until we see a non-zero value for high-coverage end of array.
+  var allzero = true
+  for i, v in pairs(d):
+    if allzero and v == 0: continue
+    allzero = false
+    cum += float64(v) / float64(sum)
+    var irev = len(d) - i - 1
+    fh.write_line($irev & "\t" & su.format_float(cum, ffDecimal, precision=4))
+  fh.close()
+
 proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
   if r == nil:
     return targets
@@ -280,15 +312,16 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
 when(isMainModule):
 
   let doc = """
-  nimdepth
+  mosdepth
 
-  Usage: nimdepth [options] <BAM-or-CRAM>
+  Usage: mosdepth [options] <BAM-or-CRAM>
   
   -t --threads <threads>     number of BAM decompression threads to use [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -b --by <bed|window>       BED file of regions or an (integer) window-size for which to calculate depth.
   -f --fasta <fasta>         fasta file for use with CRAM files.
+  -d --distribution <file>   write a cumulative distribution file (coverage, n).
   -h --help                  show help
   """
 
@@ -302,6 +335,10 @@ when(isMainModule):
   var fasta: cstring = nil
   if $args["--fasta"] != "nil":
     fasta = cstring($args["--fasta"])
+
+  var distribution: seq[int32]
+  if $args["--distribution"] != "nil":
+    distribution = new_seq[int32](1000)
 
   var
     arr:coverage_t
@@ -317,6 +354,11 @@ when(isMainModule):
         target = targets[int(tid)].name & "\t"
         for p in gen_depths(arr, 0, 0, uint32(tid)):
             stdout.write_line(target & intToStr(int(p.stop)) & "\t" & intToStr(int(p.value)))
+        if distribution != nil:
+          arr.to_coverage()
+          distribution.inc(arr, uint32(0), uint32(len(arr)))
+    if distribution != nil:
+      write_distribution(distribution, $args["--distribution"])
     quit()
 
   # windows are either from regions, or fixed-length windows.
@@ -324,7 +366,9 @@ when(isMainModule):
   var sub_targets = get_targets(targets, chrom)
   var last_chrom = ""
   var rchrom : region_t
+  var found = false
   for r in region_gen($args["--by"], sub_targets):
+    if chrom != nil and r.chrom != chrom.chrom: continue
     if r.chrom != last_chrom:
       target = r.chrom & "\t"
       var j = 0
@@ -332,9 +376,18 @@ when(isMainModule):
       for tid in coverage(bam, arr, rchrom, mapq):
         arr.to_coverage()
         inc(j)
-      assert j == 1
       last_chrom = r.chrom
+      if j == 0: # didn't find this chrom
+        stderr.write_line "chromosome: ", r.chrom, " not found in alignments"
+        found = false
+      else:
+        found = true
+    if not found: continue
 
     var me = imean(arr, r.start, r.stop)
     var m = su.format_float(me, ffDecimal, precision=2)
     stdout.write_line(target & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+    if distribution != nil:
+      distribution.inc(arr, r.start, r.stop)
+  if distribution != nil:
+    write_distribution(distribution, $args["--distribution"])
