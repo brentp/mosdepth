@@ -1,1 +1,6 @@
 nimcache
+*.bam
+*.cram
+*.bai
+*.crai
+profile_results.txt
