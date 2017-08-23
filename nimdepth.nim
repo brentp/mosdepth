@@ -243,10 +243,19 @@ when(isMainModule):
     bed_based = true
   GC_disableMarkAndSweep()
   discard setvbuf(stdout, nil, 0, 16384)
-  var arr : seq[int32]
 
-  var threads = S.parse_int($args["--threads"])
-  var chrom = region_line_to_region($args["--chrom"])
-  var bam = hts.open_hts($args["<BAM>"], threads=threads, index=chrom != nil)
+  var
+    arr:seq[int32]
+    threads = S.parse_int($args["--threads"])
+    chrom = region_line_to_region($args["--chrom"])
+    bam = hts.open_hts($args["<BAM>"], threads=threads, index=chrom != nil)
+    targets = bam.hdr.targets()
+    last_tid = uint32(0)
+    target = targets[int(last_tid)].name & "\t"
+
+  stderr.write_line chrom
   for region in depth(bam, arr, chrom, mapq):
-    echo region
+    if region.tid != last_tid:
+      last_tid = region.tid
+      target = targets[int(last_tid)].name & "\t"
+    stdout.write_line(target & intToStr(region.pos) & "\t" & intToStr(region.value))
