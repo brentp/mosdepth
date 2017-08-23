@@ -1,6 +1,6 @@
 # mosdepth
 
-fast depth calculation and normalization
+fast BAM/CRAM depth calculation
 
 `mosdepth` can output per-base depth about twice as fast `samtools depth`.
 
@@ -66,7 +66,7 @@ This could be plotted in python with e.g.:
 
 ```
 from matplotlib import pyplot as plt
-xs, ys = zip(*(map(float, x.split()) for x in open('dist.txt')))
+xs, ys = zip(`*`(map(float, x.split()) for x in open('dist.txt')))
 plt.plot(xs, ys)
 ```
 
@@ -94,3 +94,18 @@ to take the cumulative sum of all preceding positions to know the depth at any p
 it is slower for small, 1-time regional queries. It is, however fast for window-based
 or BED-based regions, because it first calculates the full chromosome coverage and then
 reports the coverage for each region in that chromosome.
+
+## output
+
+When no `--by` argument is specified, the output of `mosdepth`. The output looks like:
+```
+```
+
+Each line indicates the end of the previous coverage level and the start of the next.
+
+So the first line indicates that:
+
++ the values on chr1 from 0 to 216 (in 0-based, half-open (BED) coordinates) have a depth of 0. 
++ the values on chr1 from 216 to 232 have a depth of 1 
++ and so on ...
+

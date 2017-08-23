@@ -309,6 +309,46 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
       result[0] = t
       return result
 
+proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, docopt.Value]) =
+  var targets = bam.hdr.targets
+  # windows are either from regions, or fixed-length windows.
+  # we assume the input is sorted by chrom.
+  var sub_targets = get_targets(targets, chrom)
+  var distribution: seq[int32]
+  if $args["--distribution"] != "nil":
+    distribution = new_seq[int32](1000)
+  var last_chrom = ""
+  var rchrom : region_t
+  var found = false
+  var target: string
+  var arr: coverage_t
+
+  for r in region_gen($args["--by"], sub_targets):
+    if chrom != nil and r.chrom != chrom.chrom: continue
+    if r.chrom != last_chrom:
+      target = r.chrom & "\t"
+      var j = 0
+      rchrom = region_t(chrom: r.chrom)
+      for tid in coverage(bam, arr, rchrom, mapq):
+        arr.to_coverage()
+        inc(j)
+      last_chrom = r.chrom
+      if j == 0: # didn't find this chrom
+        stderr.write_line "chromosome: ", r.chrom, " not found in alignments"
+        found = false
+      else:
+        found = true
+    if not found: continue
+
+    var me = imean(arr, r.start, r.stop)
+    var m = su.format_float(me, ffDecimal, precision=2)
+    stdout.write_line(target & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+    if distribution != nil:
+      distribution.inc(arr, r.start, r.stop)
+  if distribution != nil:
+    write_distribution(distribution, $args["--distribution"])
+
+
 when(isMainModule):
 
   let doc = """
@@ -336,9 +376,6 @@ when(isMainModule):
   if $args["--fasta"] != "nil":
     fasta = cstring($args["--fasta"])
 
-  var distribution: seq[int32]
-  if $args["--distribution"] != "nil":
-    distribution = new_seq[int32](1000)
 
   var
     arr:coverage_t
@@ -350,6 +387,9 @@ when(isMainModule):
     target = targets[int(last_tid)].name & "\t"
 
   if not window_based:
+    var distribution: seq[int32]
+    if $args["--distribution"] != "nil":
+      distribution = new_seq[int32](1000)
     for tid in coverage(bam, arr, chrom, mapq):
         target = targets[int(tid)].name & "\t"
         for p in gen_depths(arr, 0, 0, uint32(tid)):
@@ -361,33 +401,4 @@ when(isMainModule):
       write_distribution(distribution, $args["--distribution"])
     quit()
 
-  # windows are either from regions, or fixed-length windows.
-  # we assume the input is sorted by chrom.
-  var sub_targets = get_targets(targets, chrom)
-  var last_chrom = ""
-  var rchrom : region_t
-  var found = false
-  for r in region_gen($args["--by"], sub_targets):
-    if chrom != nil and r.chrom != chrom.chrom: continue
-    if r.chrom != last_chrom:
-      target = r.chrom & "\t"
-      var j = 0
-      rchrom = region_t(chrom: r.chrom)
-      for tid in coverage(bam, arr, rchrom, mapq):
-        arr.to_coverage()
-        inc(j)
-      last_chrom = r.chrom
-      if j == 0: # didn't find this chrom
-        stderr.write_line "chromosome: ", r.chrom, " not found in alignments"
-        found = false
-      else:
-        found = true
-    if not found: continue
-
-    var me = imean(arr, r.start, r.stop)
-    var m = su.format_float(me, ffDecimal, precision=2)
-    stdout.write_line(target & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
-    if distribution != nil:
-      distribution.inc(arr, r.start, r.stop)
-  if distribution != nil:
-    write_distribution(distribution, $args["--distribution"])
+  window_main(bam, chrom, mapq, args)
