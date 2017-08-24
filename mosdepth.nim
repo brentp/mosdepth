@@ -359,7 +359,7 @@ when(isMainModule):
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -b --by <bed|window>       BED file of regions or an (integer) window-size for which to calculate depth.
   -f --fasta <fasta>         fasta file for use with CRAM files.
-  -d --distribution <file>   write a cumulative distribution file (coverage, n).
+  -d --distribution <file>   write a cumulative distribution file (coverage, proportion).
   -h --help                  show help
   """
 
