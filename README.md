@@ -60,7 +60,7 @@ mosdepth -d $sample.dist --by 500 $sample.wgs.bam > $sample.500.bed
 ## Installation
 
 Unless you want to install [nim](https://nim-lang.org), simply download the
-[binary from the releases](TODO: link).
+[binary from the releases](https://github.com/brentp/mosdepth/releases).
 
 If you get an error about "`libhts.so` not found", set `LD_LIBRARY_PATH`
 to the directory that contains `libhts.so`. e.g.
