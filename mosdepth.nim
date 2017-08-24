@@ -363,7 +363,7 @@ when(isMainModule):
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "nimdepth 0.1.1")
+  let args = docopt(doc, version = "mosdepth 0.1.1")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   if $args["--by"] != "nil":
