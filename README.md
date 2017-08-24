@@ -1,4 +1,4 @@
-# mosdepth
+![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
 fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencing**.
 
@@ -6,7 +6,7 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencin
 
 it can output mean per-window depth given a window size--as would be used for CNV calling.
 
-it can output the mean per-regoin given a BED file of regions.
+it can output the mean per-region given a BED file of regions.
 
 it can create a distribution of proportion of bases covered at or above a given threshhold.
 
@@ -69,9 +69,9 @@ to the directory that contains `libhts.so`. e.g.
 
 ## distribution output
 
-`distribution` gives the proportion of bases covered at a given threshhold. It is **useful for QC**.
+This is **useful for QC**.
 
-the `--distribution` option, outputs a cumulative distribution indicating then
+The `--distribution` option outputs a cumulative distribution indicating then
 proportion of genome bases (or the proportion of the `--by`) that were covered
 for at least a given coverage value.
 
@@ -86,14 +86,15 @@ xs, ys = zip(`*`(map(float, x.split()) for x in open('dist.txt')))
 plt.plot(xs, ys)
 ```
 
-Using something like that, we can plot the distribution from then
-entire genome. Below we show this for samples with ~60X coverage:
+Using something like that expanded for use on multiple samples, we can
+plot the distribution from the entire genome. Below we show this for samples
+with ~60X coverage:
 
 ![WGS Example](https://user-images.githubusercontent.com/1739/29646192-2a2a6126-883f-11e7-91ab-049295eb3531.png "WGS Example")
 
-We can also run `mosdetph` Y chromosome (--chrom Y) to verify that males and females track separately. Below, we that see
-female samples cluster along the axes while male samples have close to 30X coverage for almost
-40% of the genome.
+We can also run `mosdepth` on just the Y chromosome (--chrom Y) to verify that males and females
+track separately. Below, we that see female samples cluster along the axes while male samples have
+close to 30X coverage for almost 40% of the genome.
 
 ![Y Example](https://user-images.githubusercontent.com/1739/29646191-2a246564-883f-11e7-951a-aa68d7a1a6ed.png "Y Example")
 
@@ -109,8 +110,7 @@ cumulative sum of all array positions preceding it (a similar algorithm is used 
 where starts and stops are tracked separately). `mosdepth` **avoids double-counting
 overlapping mate-pairs** and it **tracks every aligned part of every read using the CIGAR
 operations**. Because of this data structure, the the coverage `distribution` calculation
-can be done without a noticeable increase in run-time. The image below conveys the mapping
-idea:
+can be done without a noticeable increase in run-time. The image below conveys the concept:
 
 ![alg](https://user-images.githubusercontent.com/1739/29647913-d79ab028-8848-11e7-86cf-60d4b087bc3b.png "algorithm")
 
@@ -119,10 +119,10 @@ it is also conceptually simple. For these reasons, it is faster than `samtools d
 works by using the [pileup](http://samtools.sourceforge.net/pileup.shtml) machinery that
 tracks each read, each base. 
 
-The `mosdepth` method has some limitations. Because a large array is allocated and it increase
+The `mosdepth` method has some limitations. Because a large array is allocated and it is
 required (in general) to take the cumulative sum of all preceding positions to know the depth
 at any position, it is slower for small, 1-time regional queries. It is, however fast for
-window-based or BED-based regions, because it first calculates the full chromosome coverage:
+window-based or BED-based regions, because it first calculates the full chromosome coverage
 and then reports the coverage for each region in that chromosome. Another downside is it uses
 more memory than samtools. The amount of memory is approximately equal to 32-bits * longest chrom
 length, so for the 249MB chromosome 1, it will require 500MB of memory.

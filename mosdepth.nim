@@ -282,7 +282,7 @@ proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
 proc write_distribution(d: var seq[int32], path:string) =
   var fh:File
   if not open(fh, path, fmWrite):
-    stderr.write_line("could not open file:", path)
+    stderr.write_line("mosdepth: could not open file:", path)
     quit(1)
   var sum: int64
   for v in d: sum += int64(v)
@@ -332,7 +332,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, d
         inc(j)
       last_chrom = r.chrom
       if j == 0: # didn't find this chrom
-        stderr.write_line "chromosome: ", r.chrom, " not found in alignments"
+        stderr.write_line "mosdepth: chromosome: ", r.chrom, " not found in alignments"
         found = false
       else:
         found = true
@@ -383,6 +383,12 @@ when(isMainModule):
     targets = bam.hdr.targets()
     last_tid = uint32(0)
     target = targets[int(last_tid)].name & "\t"
+
+  discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
+                         SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
+                         SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN,
+                         SamField.SAM_QUAL, SamField.SAM_AUX)
+  discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
 
   if not window_based:
     var distribution: seq[int32]
