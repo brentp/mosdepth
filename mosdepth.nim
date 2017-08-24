@@ -291,13 +291,11 @@ proc write_distribution(d: var seq[int32], path:string) =
   # bases with a coverage of at least 1.
   reverse(d)
   # skip until we see a non-zero value for high-coverage end of array.
-  var allzero = true
   for i, v in pairs(d):
-    if allzero and v == 0: continue
-    allzero = false
+    if i > 300 and v == 0: continue
     cum += float64(v) / float64(sum)
     var irev = len(d) - i - 1
-    fh.write_line($irev & "\t" & su.format_float(cum, ffDecimal, precision=4))
+    fh.write_line($irev & "\t" & su.format_float(cum, ffDecimal, precision=5))
   fh.close()
 
 proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
