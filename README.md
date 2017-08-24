@@ -123,7 +123,9 @@ The `mosdepth` method has some limitations. Because a large array is allocated a
 required (in general) to take the cumulative sum of all preceding positions to know the depth
 at any position, it is slower for small, 1-time regional queries. It is, however fast for
 window-based or BED-based regions, because it first calculates the full chromosome coverage:
-and then reports the coverage for each region in that chromosome.
+and then reports the coverage for each region in that chromosome. Another downside is it uses
+more memory than samtools. The amount of memory is approximately equal to 32-bits * longest chrom
+length, so for the 249MB chromosome 1, it will require 500MB of memory.
 
 `mosdepth` is written in [nim](https://nim-lang.org/) and it uses our [htslib](https://github.com/samtools/htslib)
 via our nim wrapper [hts-nim](https://github.com/brentp/hts-nim/)
@@ -156,3 +158,18 @@ So the first line indicates that:
 + 255..9991 == 0
 + and so on ...
 
+## speed and comparison
+
+coming soon.
+
+format: BAM/CRAM
+tool: samtools, sambamba, bedtools, mosdepth
+threads: 0..5
+mode: base | window
+
+----------------------------------------------------------------------------
+ format |    tool    | threads  | mode | relative speed | run-time | memory |
+
+
+o
+# plot of per-base samtools vs per-base mosdepth
