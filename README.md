@@ -2,7 +2,8 @@
 
 fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencing**.
 
-`mosdepth` can output per-base depth about twice as fast `samtools depth`.
+`mosdepth` can output per-base depth about twice as fast `samtools depth`--about 25 minutes of CPU time for a 30X
+genome.
 
 it can output mean per-window depth given a window size--as would be used for CNV calling.
 
