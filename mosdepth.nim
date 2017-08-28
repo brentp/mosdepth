@@ -347,6 +347,12 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, d
   if distribution != nil:
     write_distribution(distribution, $args["--distribution"])
 
+proc check_chrom(r: region_t, targets: seq[Target]) =
+  for t in targets:
+    if t.name == r.chrom:
+      return
+  stderr.write_line "mosdepth: chromosome ", r.chrom, " not found"
+  quit(1)
 
 when(isMainModule):
 
@@ -390,6 +396,8 @@ when(isMainModule):
                          SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN,
                          SamField.SAM_QUAL, SamField.SAM_AUX)
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
+
+  check_chrom(chrom, targets)
 
   if not window_based:
     var distribution: seq[int32]
