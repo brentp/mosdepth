@@ -159,7 +159,13 @@ So the first line indicates that:
 + 255..9991 == 0
 + and so on ...
 
-## speed and comparison
+## speed and memory comparison
+
+`mosdepth`, `samtools`, `bedtools`, and `sambamba` were run on a 30X genome.
+relative times are relative to mosdepth per-base mode with a single thread.
+
+`mosdepth` can report the mean depth in 500-base windows genome-wide info
+under 9 minutes of user time with 3 threads.
 
 | format |    tool    | threads  | mode   | relative time | run-time | memory |
 | ------ | ---------- | -------- | ------ | ------------- | -------  | -------|
@@ -178,6 +184,6 @@ So the first line indicates that:
 
 ### Accuracy
 
-We compared `samtools depth` with default arguments to `mosdepth` without ovlerap detection and discovered **no
+We compared `samtools depth` with default arguments to `mosdepth` without overlap detection and discovered **no
 differences across the entire chromosome**.
 
