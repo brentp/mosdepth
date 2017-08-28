@@ -161,30 +161,20 @@ So the first line indicates that:
 
 ## speed and comparison
 
-coming soon.
-
-format: BAM/CRAM
-tool: samtools, sambamba, bedtools, mosdepth
-threads: 0..5
-mode: base | window
-
-| format |    tool    | threads  | mode | relative speed | run-time | memory |
-| ------ | ---------- | -------- | -----| -------------- | -------  | -------|
-|  BAM   |  mosdepth  |    1     | base |     1          |  25:23   |  1196  |
-|  BAM   |  mosdepth  |    3     | base |     ?          |  14:27   |  1197  |
-|  CRAM  |  mosdepth  |    1     | base |     ?          |  29:47   |  1205  |
-|  CRAM  |  mosdepth  |    3     | base |     ?          |  14:08   |  1225  |
-
-```
-mosdepth -t 2 --by 500 /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.bam|1326.33|8:44.36|1277.52
-mosdepth -t 0 --by 500 /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.bam|1171.12|20:26.92|1212.44
-mosdepth -t 2 --by 500 /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.cram|1401.47|8:47.13|1233.69
-mosdepth -t 0 --by 500 /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.cram|1312.89|22:23.04|1209.21
-sambamba_v0.6.6 depth base --fix-mate-overlaps /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.bam|8632.81|2:24:53|166.82
-samtools depth -d 100000 /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.bam|2956.61|50:12.37|26.78
-samtools depth -d 100000 /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.cram|2276.56|45:21.76|450.79
-bedtools genomecov -ibam /scratch/ucgd/lustre/work/u6000771/Data/mosdepth/ERR1395576.30X.bam|8005.26|2:14:44|1907.89
-```
+| format |    tool    | threads  | mode   | relative time | run-time | memory |
+| ------ | ---------- | -------- | ------ | ------------- | -------  | -------|
+|  BAM   |  mosdepth  |    1     | base   |     1         |  25:23   |  1196  |
+|  BAM   |  mosdepth  |    3     | base   |    0.57       |  14:27   |  1197  |
+|  CRAM  |  mosdepth  |    1     | base   |    1.17       |  29:47   |  1205  |
+|  CRAM  |  mosdepth  |    3     | base   |    0.56       |  14:08   |  1225  |
+|  BAM   |  mosdepth  |    3     | window |    0.34       |  8:44    |  1277  |
+|  BAM   |  mosdepth  |    1     | window |    0.80       |  20:26   |  1212  |
+|  CRAM  |  mosdepth  |    3     | window |    0.35       |  8:47    |  1233  |
+|  CRAM  |  mosdepth  |    1     | window |    0.88       |  22:23   |  1209  |
+|  BAM   |  sambamba  |    1     | base   |    5.71       | 2:24:53  |  166   |
+|  BAM   |  samtools  |    1     | base   |    1.98       | 50:12    |  27    |
+|  CRAM  |  samtools  |    1     | base   |    1.79       | 45:21    |  451   |
+|  BAM   |  bedtools  |    1     | base   |    5.31       | 2:14:44  |  1908  |
 
 ### Accuracy
 
