@@ -71,6 +71,8 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
     last_depth = depth
     last_i = i
     inc(i)
+  if last_i < uint32(len(arr)-1):
+    yield (last_i, uint32(len(arr)-1), uint32(0), tid)
 
   # this is horrible, but it works. we don't know
   # if we've already printed the record on not.
@@ -186,7 +188,7 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
     # mate:             ------------
     # handle overlapping mate pairs.
     if rec.flag.proper_pair:
-      if rec.stop > rec.matepos and rec.start < rec.matepos:
+      if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and rec.start < rec.matepos:
         var rc = rec.copy()
         seen[rc.qname] = rc
       else:
@@ -230,7 +232,6 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
               pair_depth += p.value
               last_pos = p.pos
             assert pair_depth == 0
-
     inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
@@ -340,7 +341,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, d
 
     var me = imean(arr, r.start, r.stop)
     var m = su.format_float(me, ffDecimal, precision=2)
-    stdout.write_line(target & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+    stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
     if distribution != nil:
       distribution.inc(arr, r.start, r.stop)
   if distribution != nil:
@@ -397,7 +398,7 @@ when(isMainModule):
     for tid in coverage(bam, arr, chrom, mapq):
         target = targets[int(tid)].name & "\t"
         for p in gen_depths(arr, 0, 0, uint32(tid)):
-            stdout.write_line(target & intToStr(int(p.stop)) & "\t" & intToStr(int(p.value)))
+            stdout.write_line(target, intToStr(int(p.stop)), "\t", intToStr(int(p.value)))
         if distribution != nil:
           arr.to_coverage()
           distribution.inc(arr, uint32(0), uint32(len(arr)))
