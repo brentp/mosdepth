@@ -135,6 +135,8 @@ proc bed_line_to_region(line: string): region_t =
      s = S.parse_int(cse[1])
      e = S.parse_int(cse[2])
      reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
+   if len(cse) > 3:
+     reg.name = cse[3]
    return reg
 
 proc region_line_to_region(region: string): region_t =
@@ -333,6 +335,8 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
 
   for r in region_gen($args["--by"], sub_targets):
     if chrom != nil and r.chrom != chrom.chrom: continue
+    # the firs time seeing the chrom, we fill the coverage array for
+    # the entire chrom.
     if r.chrom != last_chrom:
       target = r.chrom & "\t"
       var j = 0
@@ -350,7 +354,10 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
 
     var me = imean(arr, r.start, r.stop)
     var m = su.format_float(me, ffDecimal, precision=2)
-    stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+    if r.name == nil:
+      stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+    else:
+      stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
     if distribution != nil:
       distribution.inc(arr, r.start, r.stop)
   if distribution != nil:
@@ -381,7 +388,7 @@ when(isMainModule):
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "mosdepth 0.1.2")
+  let args = docopt(doc, version = "mosdepth 0.1.3")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   if $args["--by"] != "nil":

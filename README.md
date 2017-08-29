@@ -17,17 +17,22 @@ it can create a distribution of proportion of bases covered at or above a given 
 mosdepth
 
   Usage: mosdepth [options] <BAM-or-CRAM>
-
-  -t --threads <threads>     number of CRAM|BAM decompression threads to use [default: 0]
+  
+  -t --threads <threads>     number of BAM decompression threads [default: 0]
+  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796] (default excludes unmapped, qcfailed, duplicates, secondary)
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
-  -b --by <bed|window>       BED file of regions or an (integer) window-size for which to calculate depth.
+  -b --by <bed|window>       BED file of regions or an (integer) window-size.
   -f --fasta <fasta>         fasta file for use with CRAM files.
-  -d --distribution <file>   write a cumulative distribution file (coverage, proportion).
+  -d --distribution <file>   a cumulative distribution file (coverage, proportion).
   -h --help                  show help
 ```
 
 See the section below for more info on distribution.
+
+If `--by` is a BED file with 4 or more columns, it is assumed the the 4th column is the name.
+That name will be propagated to the `mosdepth` output in the 4th column with the depth in the 5th column.
+If you don't want this behavior, simply send a bed file with 3 columns.
 
 ### exome example
 
