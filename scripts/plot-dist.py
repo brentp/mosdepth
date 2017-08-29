@@ -3,7 +3,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 import numpy as np
 import sys
-figpath = sys.argv[2] if len(sys.argv) == 3 else "dist.png"
+figpath = "dist.png"
 
 sns.set_style('whitegrid')
 sns.set_palette('Set1', 13)

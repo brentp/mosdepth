@@ -79,17 +79,12 @@ for at least a given coverage value.
 This will write a file to the requested path with values indicating the coverage
 threshold and the proportion of bases covered at that threshold.
 
-This could be plotted in python with e.g.:
+A python plotting script is provided in `scripts/plot-dist.py` that will make 
+plots like below. Use is `python scripts/plot-dist.py *.dist` and the output
+is `dist.png`.
 
-```
-from matplotlib import pyplot as plt
-xs, ys = zip(`*`(map(float, x.split()) for x in open('dist.txt')))
-plt.plot(xs, ys)
-```
-
-Using something like that expanded for use on multiple samples, we can
-plot the distribution from the entire genome. Below we show this for samples
-with ~60X coverage:
+Using something like that, we can plot the distribution from the entire genome.
+Below we show this for samples with ~60X coverage:
 
 ![WGS Example](https://user-images.githubusercontent.com/1739/29646192-2a2a6126-883f-11e7-91ab-049295eb3531.png "WGS Example")
 
