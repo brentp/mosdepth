@@ -17,6 +17,7 @@ type
     chrom: string
     start: uint32
     stop: uint32
+    name: string
 
   coverage_t = seq[int32]
 
@@ -129,10 +130,11 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
         yield r
 
 proc bed_line_to_region(line: string): region_t =
-   var cse = sequtils.to_seq(line.strip().split("\t"))
-   var s = S.parse_int(cse[1])
-   var e = S.parse_int(cse[2])
-   var reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
+   var
+     cse = sequtils.to_seq(line.strip().split("\t"))
+     s = S.parse_int(cse[1])
+     e = S.parse_int(cse[2])
+     reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
    return reg
 
 proc region_line_to_region(region: string): region_t =
@@ -155,18 +157,20 @@ proc get_tid(tgts: seq[hts.Target], chrom: string): int =
     if t.name == chrom:
       return t.tid
 
-iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1): int =
+iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
   # depth updates arr in-place and yields the tid for each chrom.
-  var targets = bam.hdr.targets
-  var tid = if region != nil: get_tid(targets, region.chrom) else: -1
+  var
+    targets = bam.hdr.targets
+    tgt: hts.Target
+    mate: Record
+    seen = newTable[string, Record]()
 
-  var tgt: hts.Target
-  var mate: Record
-  var seen = newTable[string, Record]()
+  var tid = if region != nil: get_tid(targets, region.chrom) else: -1
 
   for rec in bam.regions(region, tid, targets):
     if int(rec.qual) < mapq: continue
-    if rec.flag.has_flag(BAM_FUNMAP or BAM_FQCFAIL or BAM_FDUP or BAM_FSECONDARY): continue
+    if (rec.flag and eflag) != 0:
+      continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
           yield tgt.tid
@@ -268,6 +272,7 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   if vals == nil or start > uint32(len(vals)):
     return 0
   for i in start .. <stop:
+    if int(i) == len(vals): break
     result += float64(vals[int(i)])
   result /= float64(stop-start)
 
@@ -310,19 +315,21 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
       result[0] = t
       return result
 
-proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, docopt.Value]) =
+proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: Table[string, docopt.Value]) =
   var targets = bam.hdr.targets
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
-  var sub_targets = get_targets(targets, chrom)
-  var distribution: seq[int32]
+  var
+    sub_targets = get_targets(targets, chrom)
+    distribution: seq[int32]
+    last_chrom = ""
+    rchrom : region_t
+    found = false
+    target: string
+    arr: coverage_t
+
   if $args["--distribution"] != "nil":
     distribution = new_seq[int32](1000)
-  var last_chrom = ""
-  var rchrom : region_t
-  var found = false
-  var target: string
-  var arr: coverage_t
 
   for r in region_gen($args["--by"], sub_targets):
     if chrom != nil and r.chrom != chrom.chrom: continue
@@ -330,7 +337,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, d
       target = r.chrom & "\t"
       var j = 0
       rchrom = region_t(chrom: r.chrom)
-      for tid in coverage(bam, arr, rchrom, mapq):
+      for tid in coverage(bam, arr, rchrom, mapq, eflag):
         arr.to_coverage()
         inc(j)
       last_chrom = r.chrom
@@ -364,12 +371,13 @@ when(isMainModule):
 
   Usage: mosdepth [options] <BAM-or-CRAM>
   
-  -t --threads <threads>     number of BAM decompression threads to use [default: 0]
+  -t --threads <threads>     number of BAM decompression threads [default: 0]
+  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
-  -b --by <bed|window>       BED file of regions or an (integer) window-size for which to calculate depth.
+  -b --by <bed|window>       BED file of regions or an (integer) window-size.
   -f --fasta <fasta>         fasta file for use with CRAM files.
-  -d --distribution <file>   write a cumulative distribution file (coverage, proportion).
+  -d --distribution <file>   a cumulative distribution file (coverage, proportion).
   -h --help                  show help
   """
 
@@ -384,9 +392,9 @@ when(isMainModule):
   if $args["--fasta"] != "nil":
     fasta = cstring($args["--fasta"])
 
-
   var
     arr:coverage_t
+    eflag: uint16 = uint16(S.parse_int($args["--flag"]))
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
     bam = hts.open_hts($args["<BAM-or-CRAM>"], threads=threads, index=chrom != nil or window_based, fai=fasta)
@@ -406,7 +414,7 @@ when(isMainModule):
     var distribution: seq[int32]
     if $args["--distribution"] != "nil":
       distribution = new_seq[int32](1000)
-    for tid in coverage(bam, arr, chrom, mapq):
+    for tid in coverage(bam, arr, chrom, mapq, eflag):
         target = targets[int(tid)].name & "\t"
         for p in gen_depths(arr, 0, 0, uint32(tid)):
             stdout.write_line(target, intToStr(int(p.stop)), "\t", intToStr(int(p.value)))
@@ -417,4 +425,4 @@ when(isMainModule):
       write_distribution(distribution, $args["--distribution"])
     quit()
 
-  window_main(bam, chrom, mapq, args)
+  window_main(bam, chrom, mapq, eflag, args)

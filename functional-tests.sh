@@ -21,3 +21,6 @@ run missing_chrom $exe -c nonexistent --by 20000 /data/human/NA12878.subset.bam
 assert_in_stderr "mosdepth: chromosome nonexistent not found"
 
 assert_exit_code 1
+
+run flag $exe -c chrM -F 4 --by 20000 /data/human/NA12878.subset.bam
+assert_exit_code 0
