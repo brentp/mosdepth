@@ -350,6 +350,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, d
     write_distribution(distribution, $args["--distribution"])
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
+  if r == nil: return
   for t in targets:
     if t.name == r.chrom:
       return
