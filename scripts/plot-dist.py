@@ -2,6 +2,9 @@ import sys
 import seaborn as sns
 from matplotlib import pyplot as plt
 import numpy as np
+import sys
+figpath = sys.argv[2] if len(sys.argv) == 3 else "dist.png"
+
 sns.set_style('whitegrid')
 sns.set_palette('Set1', 13)
 
@@ -22,6 +25,7 @@ for f in sys.argv[1:]:
 
     plt.plot(xs, ys, label=sample)
 plt.xlabel("Coverage")
-plt.ylabel("Proportion of chrY at coverage")
-plt.savefig('/uufs/chpc.utah.edu/common/home/u6000771/public_html/eiee.coverage.Y.png')
-plt.show()
+plt.ylabel("Proportion of bases at coverage")
+plt.xlim(xmin=0)
+plt.ylim(ymin=0, ymax=1)
+plt.savefig(figpath)

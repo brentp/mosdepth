@@ -265,6 +265,8 @@ iterator region_gen(bed_or_window: string, targets: seq[hts.Target]): region_t =
     for r in bed_gen(bed_or_window): yield r
 
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
+  if vals == nil or start > uint32(len(vals)):
+    return 0
   for i in start .. <stop:
     result += float64(vals[int(i)])
   result /= float64(stop-start)
@@ -337,7 +339,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, args: Table[string, d
         found = false
       else:
         found = true
-    if not found: continue
+    #if not found: continue # now just writes from imean
 
     var me = imean(arr, r.start, r.stop)
     var m = su.format_float(me, ffDecimal, precision=2)
