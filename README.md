@@ -1,4 +1,5 @@
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
+[![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=travis)](https://travis-ci.org/brentp/mosdepth)
 
 fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencing**.
 
@@ -72,6 +73,9 @@ If you get an error about "`libhts.so` not found", set `LD_LIBRARY_PATH`
 to the directory that contains `libhts.so`. e.g.
 
 ```LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h```
+
+If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
+and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
 
 ## distribution output
 

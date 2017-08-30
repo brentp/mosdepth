@@ -1,0 +1,20 @@
+language: c
+env:
+  - BRANCH=master
+
+before_install:
+  - export PATH="nim-$BRANCH/bin/nim/bin:${PATH:+:$PATH}"
+  - export LD_LIBRARY_PATH=./htslib/
+  - export PATH="nim-$BRANCH/bin${PATH:+:$PATH}"
+install:
+  - bash ./scripts/install.sh
+script:
+  - nim c --cc:$CC -r mosdepth.nim
+  - ./mosdepth -h
+cache:
+  directories:
+    - nim-master
+    - nim-devel
+branches:
+  except:
+    - gh-pages
