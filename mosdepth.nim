@@ -93,7 +93,7 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair =
     yield (ipos + c[0].len, int32(-1))
   else:
     var pos = ipos
-    var last_stop = 0
+    var last_stop = -1
     var con: Consume
     for op in c:
       con = op.consumes
@@ -103,11 +103,11 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair =
       if con.query:
         if pos != last_stop:
           yield (pos, int32(1))
-          if last_stop != 0:
+          if last_stop != -1:
             yield (last_stop, int32(-1))
         last_stop = pos + olen
       pos += olen
-    if last_stop != 0:
+    if last_stop != -1:
       yield (last_stop, int32(-1))
 
 proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {. inline .} =
@@ -237,7 +237,7 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
                 inc(arr[p.pos])
               pair_depth += p.value
               last_pos = p.pos
-            assert pair_depth == 0
+            assert pair_depth == 0, $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
     inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
@@ -292,7 +292,7 @@ proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
 proc write_distribution(d: var seq[int32], path:string) =
   var fh:File
   if not open(fh, path, fmWrite):
-    stderr.write_line("mosdepth: could not open file:", path)
+    stderr.write_line("[mosdepth] could not open file:", path)
     quit(1)
   var sum: int64
   for v in d: sum += int64(v)
@@ -346,7 +346,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
         inc(j)
       last_chrom = r.chrom
       if j == 0: # didn't find this chrom
-        stderr.write_line "mosdepth: chromosome: ", r.chrom, " not found in alignments"
+        stderr.write_line "[mosdepth] chromosome: ", r.chrom, " not found in alignments"
         found = false
       else:
         found = true
@@ -368,10 +368,12 @@ proc check_chrom(r: region_t, targets: seq[Target]) =
   for t in targets:
     if t.name == r.chrom:
       return
-  stderr.write_line "mosdepth: chromosome ", r.chrom, " not found"
+  stderr.write_line "[mosdepth] chromosome ", r.chrom, " not found"
   quit(1)
 
 when(isMainModule):
+  when not defined(release):
+    stderr.write_line "[mosdepth] WARNING: built debug mode. will be slow"
 
   let doc = """
   mosdepth
@@ -388,7 +390,7 @@ when(isMainModule):
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "mosdepth 0.1.3")
+  let args = docopt(doc, version = "mosdepth 0.1.4")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   if $args["--by"] != "nil":
