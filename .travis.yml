@@ -9,7 +9,7 @@ before_install:
 install:
   - bash ./scripts/install.sh
 script:
-  - nim c -d:debug --cc:$CC -r mosdepth.nim
+  - nim c -d:release --cc:$CC -r mosdepth.nim
   - ./mosdepth -h
 cache:
   directories:
