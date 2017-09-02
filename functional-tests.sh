@@ -16,6 +16,14 @@ assert_exit_code 0
 assert_in_stdout "MT	80	1
 MT	16569	0"
 
+run missing_chrom $exe -c nonexistent --by 20000 tests/ovl.bam
+assert_in_stderr "[mosdepth] chromosome nonexistent not found"
+assert_exit_code 1
+
+run big_window $exe --dist t.dist tests/ovl.bam --by 100000000
+assert_exit_code 0
+assert_in_stdout "MT"
+assert_equal "2" "$(cat t.dist | wc -l)"
 
 test -e $bam || exit
 
@@ -24,12 +32,6 @@ head $STDOUT_FILE
 tail $STDOUT_FILE
 assert_in_stdout "chrM	10000	19073"
 assert_exit_code 0
-
-
-run missing_chrom $exe -c nonexistent --by 20000 /data/human/NA12878.subset.bam
-assert_in_stderr "[mosdepth] chromosome nonexistent not found"
-
-assert_exit_code 1
 
 run flag $exe -c chrM -F 4 --by 20000 /data/human/NA12878.subset.bam
 assert_exit_code 0

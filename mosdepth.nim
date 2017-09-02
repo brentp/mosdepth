@@ -364,7 +364,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
       stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
     else:
       stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
-    if distribution != nil:
+    if distribution != nil and arr != nil and found:
       distribution.inc(arr, r.start, r.stop)
   if distribution != nil:
     write_distribution(distribution, $args["--distribution"])
