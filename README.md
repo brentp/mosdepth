@@ -20,7 +20,7 @@ mosdepth
 
   Usage: mosdepth [options] <BAM-or-CRAM>
   
-  -t --threads <threads>     number of BAM decompression threads [default: 0]
+  -t --threads <threads>     number of BAM decompression threads (values > 4 will be ineffective) [default: 0]
   -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796] (default excludes unmapped, qcfailed, duplicates, secondary)
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
@@ -64,6 +64,16 @@ For 500-base windows (and a coverage distribution):
 ```
 mosdepth -d $sample.dist --by 500 $sample.wgs.bam > $sample.500.bed
 ```
+
+### Distribution only
+
+To get only the distribution value, without the depth file:
+
+```
+mosdepth -t 3 -d $sample.dist -b 100000 > /dev/null
+```
+
+A large window size makes `mosdepth` do less work formatting numbers.
 
 ## Installation
 
