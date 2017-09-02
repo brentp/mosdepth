@@ -259,10 +259,11 @@ iterator bed_gen(bed: string): region_t =
 iterator window_gen(window: uint32, targets: seq[hts.Target]): region_t =
   for t in targets:
     var start:uint32 = 0
-    while start < t.length - window:
+    while start + window < t.length:
       yield region_t(chrom: t.name, start: start, stop: start + window)
       start += window
-    yield region_t(chrom: t.name, start: start, stop: t.length)
+    if start != t.length:
+      yield region_t(chrom: t.name, start: start, stop: t.length)
 
 iterator region_gen(bed_or_window: string, targets: seq[hts.Target]): region_t =
   if bed_or_window.isdigit():
@@ -278,11 +279,15 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
     result += float64(vals[int(i)])
   result /= float64(stop-start)
 
+const MAX_COVERAGE = int32(400000)
+
 proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
   var v:int32
   var L = int32(len(d)-1)
   for i in start .. <stop:
     v = coverage[int(i)]
+    if v > MAX_COVERAGE:
+      v = MAX_COVERAGE - 10
     if v >= L:
       d.set_len(v + 10)
       L = int32(len(d)-1)
@@ -390,7 +395,7 @@ when(isMainModule):
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "mosdepth 0.1.4")
+  let args = docopt(doc, version = "mosdepth 0.1.5")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   if $args["--by"] != "nil":

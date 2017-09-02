@@ -11,6 +11,7 @@ install:
 script:
   - nim c -d:release --cc:$CC -r mosdepth.nim
   - ./mosdepth -h
+  - bash functional-tests.sh
 cache:
   directories:
     - nim-master
