@@ -12,7 +12,7 @@ sns.set_palette('Set1', 13)
 
 traces = []
 
-for f in sys.argv[1]:
+for f in sys.argv[1:]:
     xs, ys = [], []
     v50 = 0
     sample = f.split(".")[0]
@@ -55,6 +55,7 @@ var layout = {
     height: 900,
     xaxis: {title: 'Coverage', domain: [0, 1]},
     yaxis: {title: 'Proportion of bases at coverage', domain: [0, 1]},
+    showlegend: $showlegend,
     legend: {
         x: 0.1,
         y: 0.1
@@ -67,4 +68,4 @@ Plotly.newPlot('plot-div', $data, layout);
 
 with open("dist.html", "w") as html:
     tmpl = string.Template(tmpl)
-    html.write(tmpl.substitute(data=json.dumps(traces)))
+    html.write(tmpl.substitute(data=json.dumps(traces), showlegend="true" if len(sys.argv[1:]) < 20 else "false"))
