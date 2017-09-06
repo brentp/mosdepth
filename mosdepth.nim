@@ -361,9 +361,9 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
     var me = imean(arr, r.start, r.stop)
     var m = su.format_float(me, ffDecimal, precision=2)
     if r.name == nil:
-      stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+      stdout.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
     else:
-      stdout.write_line(target, "\t", intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
+      stdout.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
     if distribution != nil and arr != nil and found:
       distribution.inc(arr, r.start, r.stop)
   if distribution != nil:
@@ -396,7 +396,7 @@ when(isMainModule):
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "mosdepth 0.1.5")
+  let args = docopt(doc, version = "mosdepth 0.1.6")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   if $args["--by"] != "nil":
