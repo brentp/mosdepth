@@ -19,14 +19,19 @@ it can create a distribution of proportion of bases covered at or above a given 
 mosdepth
 
   Usage: mosdepth [options] <BAM-or-CRAM>
+
+Common Options:
   
-  -t --threads <threads>     number of BAM decompression threads (values > 4 will be ineffective) [default: 0]
-  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796] (default excludes unmapped, qcfailed, duplicates, secondary)
+  -t --threads <threads>     number of BAM decompression threads (values <=4 recommended) [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -b --by <bed|window>       BED file of regions or an (integer) window-size.
-  -f --fasta <fasta>         fasta file for use with CRAM files.
   -d --distribution <file>   a cumulative distribution file (coverage, proportion).
+  -f --fasta <fasta>         fasta file for use with CRAM files.
+
+Other options:
+
+  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
+  -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -h --help                  show help
 ```
 
@@ -173,6 +178,12 @@ So the first line indicates that:
 + 236..255 == 1
 + 255..9991 == 0
 + and so on ...
+
+This is more compact than BED, but it's simple to convert to BED as:
+
+```
+awk 'BEGIN{start=0;last="";OFS="\t"}{ if($1!=last){start=0} print $1,start,$2,$3;start=$2;last=$1}'
+```
 
 ## speed and memory comparison
 
