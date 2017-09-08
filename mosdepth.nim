@@ -132,6 +132,12 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
 proc bed_line_to_region(line: string): region_t =
    var
      cse = sequtils.to_seq(line.strip().split("\t"))
+
+   if len(cse) < 3:
+     stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
+     return nil
+
+   var
      s = S.parse_int(cse[1])
      e = S.parse_int(cse[2])
      reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
@@ -252,6 +258,8 @@ iterator bed_gen(bed: string): region_t =
   kstr.m = 0
   kstr.s = nil
   while hts_getline(hf, cint(10), addr kstr) > 0:
+    if ($kstr.s).startswith("track "):
+      continue
     yield bed_line_to_region($kstr.s)
 
   hts.free(kstr.s)
@@ -340,6 +348,7 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
     distribution = new_seq[int32](1000)
 
   for r in region_gen($args["--by"], sub_targets):
+    if r == nil: continue
     if chrom != nil and r.chrom != chrom.chrom: continue
     # the firs time seeing the chrom, we fill the coverage array for
     # the entire chrom.
@@ -401,7 +410,7 @@ Other options:
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "mosdepth 0.1.6")
+  let args = docopt(doc, version = "mosdepth 0.1.7")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   if $args["--by"] != "nil":
