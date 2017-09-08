@@ -385,14 +385,19 @@ when(isMainModule):
   mosdepth
 
   Usage: mosdepth [options] <BAM-or-CRAM>
+
+Common Options:
   
   -t --threads <threads>     number of BAM decompression threads [default: 0]
-  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -b --by <bed|window>       BED file of regions or an (integer) window-size.
-  -f --fasta <fasta>         fasta file for use with CRAM files.
   -d --distribution <file>   a cumulative distribution file (coverage, proportion).
+  -f --fasta <fasta>         fasta file for use with CRAM files.
+
+Other options:
+
+  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
+  -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -h --help                  show help
   """
 
