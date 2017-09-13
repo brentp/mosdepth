@@ -315,10 +315,10 @@ proc write_distribution(d: var seq[int32], path:string) =
   reverse(d)
   # skip until we see a non-zero value for high-coverage end of array.
   for i, v in pairs(d):
-    if i > 300 and v == 0: continue
+    var irev = len(d) - i - 1
+    if irev > 300 and v == 0: continue
     cum += float64(v) / float64(sum)
     if cum < 5e-6: continue
-    var irev = len(d) - i - 1
     fh.write_line($irev & "\t" & su.format_float(cum, ffDecimal, precision=5))
   fh.close()
 
