@@ -274,10 +274,11 @@ iterator window_gen(window: uint32, targets: seq[hts.Target]): region_t =
       yield region_t(chrom: t.name, start: start, stop: t.length)
 
 iterator region_gen(bed_or_window: string, targets: seq[hts.Target]): region_t =
-  if bed_or_window.isdigit():
-    for r in window_gen(uint32(S.parse_int(bed_or_window)), targets): yield r
-  else:
-    for r in bed_gen(bed_or_window): yield r
+  if bed_or_window != nil:
+    if bed_or_window.isdigit():
+      for r in window_gen(uint32(S.parse_int(bed_or_window)), targets): yield r
+    else:
+      for r in bed_gen(bed_or_window): yield r
 
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   if vals == nil or start > uint32(len(vals)):
@@ -331,7 +332,7 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
       result[0] = t
       return result
 
-proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: Table[string, docopt.Value]) =
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, args: Table[string, docopt.Value]) =
   var targets = bam.hdr.targets
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
@@ -343,11 +344,20 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
     found = false
     target: string
     arr: coverage_t
+    prefix: string = $(args["--prefix"])
+    skip_per_base = $args["--no-per-base"] != "nil"
 
-  if $args["--distribution"] != "nil":
-    distribution = new_seq[int32](1000)
+  distribution = new_seq[int32](1000)
 
-  for r in region_gen($args["--by"], sub_targets):
+  var f: File
+  var r : seq[string] = sequtils.to_seq(region.rsplit("/", 1))
+  var base: string = r[len(r) - 1]
+  discard open(f, prefix & "." & base & ".bed", fmWrite)
+
+  # TODO: if chrom is not set and skip_per_base is not true, then we must loop over the sub_targets in order
+  # TODO: this is hard because if region is a bed file, it might be in different order to sub_targets.
+  # TODO: in that case, we sort all regions from bed file to match chrom order in sub_targets.
+  for r in region_gen(region, sub_targets):
     if r == nil: continue
     if chrom != nil and r.chrom != chrom.chrom: continue
     # the firs time seeing the chrom, we fill the coverage array for
@@ -370,13 +380,12 @@ proc window_main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, args: 
     var me = imean(arr, r.start, r.stop)
     var m = su.format_float(me, ffDecimal, precision=2)
     if r.name == nil:
-      stdout.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+      f.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
     else:
-      stdout.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
-    if distribution != nil and arr != nil and found:
+      f.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
+    if arr != nil and found:
       distribution.inc(arr, r.start, r.stop)
-  if distribution != nil:
-    write_distribution(distribution, $args["--distribution"])
+    write_distribution(distribution, prefix & ".dist.txt")
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
   if r == nil: return
@@ -399,8 +408,9 @@ Common Options:
   
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       BED file of regions or an (integer) window-size.
-  -d --distribution <file>   a cumulative distribution file (coverage, proportion).
+  -b --by <bed|window>       BED file or (integer) window-sizes.
+  -p --prefix <path>         prefix for output. output will go to prefix.$(basename --by).bed.
+  -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
 Other options:
@@ -410,11 +420,12 @@ Other options:
   -h --help                  show help
   """
 
-  let args = docopt(doc, version = "mosdepth 0.1.7")
+  let args = docopt(doc, version = "mosdepth 0.1.8")
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
+  var region: string
   if $args["--by"] != "nil":
-    window_based = true
+    region = $args["--by"]
   GC_disableMarkAndSweep()
   discard setvbuf(stdout, nil, 0, 16384)
   var fasta: cstring = nil
@@ -422,36 +433,16 @@ Other options:
     fasta = cstring($args["--fasta"])
 
   var
-    arr:coverage_t
     eflag: uint16 = uint16(S.parse_int($args["--flag"]))
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
     bam = hts.open_hts($args["<BAM-or-CRAM>"], threads=threads, index=chrom != nil or window_based, fai=fasta)
-    targets = bam.hdr.targets()
-    last_tid = uint32(0)
-    target = targets[int(last_tid)].name & "\t"
 
   discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
                          SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
                          SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN,
                          SamField.SAM_QUAL, SamField.SAM_AUX)
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
+  check_chrom(chrom, bam.hdr.targets)
 
-  check_chrom(chrom, targets)
-
-  if not window_based:
-    var distribution: seq[int32]
-    if $args["--distribution"] != "nil":
-      distribution = new_seq[int32](1000)
-    for tid in coverage(bam, arr, chrom, mapq, eflag):
-        target = targets[int(tid)].name & "\t"
-        for p in gen_depths(arr, 0, 0, uint32(tid)):
-            stdout.write_line(target, intToStr(int(p.stop)), "\t", intToStr(int(p.value)))
-        if distribution != nil:
-          arr.to_coverage()
-          distribution.inc(arr, uint32(0), uint32(len(arr)))
-    if distribution != nil:
-      write_distribution(distribution, $args["--distribution"])
-    quit()
-
-  window_main(bam, chrom, mapq, eflag, args)
+  main(bam, chrom, mapq, eflag, region, args)
