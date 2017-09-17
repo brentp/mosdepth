@@ -18,14 +18,22 @@ it can create a distribution of proportion of bases covered at or above a given 
 ```
 mosdepth
 
-  Usage: mosdepth [options] <BAM-or-CRAM>
+  Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
+
+Arguments:
+
+  <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
+                          `{prefix}.mosdepth.per-base.txt` (unless -n/--no-per-base is specified)
+                          `{prefix}.mosdepth.regions.bed` (if --by is specified)
+
+  <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
 Common Options:
   
-  -t --threads <threads>     number of BAM decompression threads (values <=4 recommended) [default: 0]
+  -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       BED file of regions or an (integer) window-size.
-  -d --distribution <file>   a cumulative distribution file (coverage, proportion).
+  -b --by <bed|window>       BED file or (integer) window-sizes.
+  -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
 Other options:
@@ -45,40 +53,37 @@ If you don't want this behavior, simply send a bed file with 3 columns.
 
 To calculate the coverage in each exome capture region:
 ```
-mosdepth --by capture.bed sample.exome.bam > sample.exome.coverage.bed
+mosdepth --by capture.bed sample-output sample.exome.bam
 ```
 For a 5.5GB exome file and all 1,195,764 ensembl exons as the regions,
 this completes in 1 minute 38 seconds with a single CPU.
 
-To calculate per-base coverage:
-
-```
-mosdepth sample.exome.bam > sample.coverage.txt
-```
+The per-base output will go to `sample-output.per-base.txt`,
+the mean for each region will go to `sample-output.regions.bed`,
+and the distribution of depths will go to `sample-output.mosdepth.dist.txt`
 
 ### WGS example
 
-For per-base whole-genome coverage:
+For 500-base windows
 
 ```
-mosdepth $sample.wgs.bam > $sample.txt
+mosdepth -n -d $sample.dist --by 500 sample.wgs $sample.wgs.bam
 ```
 
-For 500-base windows (and a coverage distribution):
+`-n` means don't output per-base data, this will make `mosdepth`
+a bit faster as there is some cost to outputting that much text.
 
-```
-mosdepth -d $sample.dist --by 500 $sample.wgs.bam > $sample.500.bed
-```
 
 ### Distribution only
 
-To get only the distribution value, without the depth file:
+To get only the distribution value, without the depth file or the per-base:
 
 ```
-mosdepth -t 3 -d $sample.dist -b 100000 > /dev/null
+mosdepth -n -t 3 -b 100000 $sample $bam
 ```
 
 A large window size makes `mosdepth` do less work formatting numbers.
+Output will go to `$sample.mosdepth.dist.txt`
 
 ## Installation
 
@@ -212,4 +217,3 @@ under 9 minutes of user time with 3 threads.
 
 We compared `samtools depth` with default arguments to `mosdepth` without overlap detection and discovered **no
 differences across the entire chromosome**.
-

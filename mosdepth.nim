@@ -6,7 +6,6 @@ import sequtils as sequtils
 import strutils as su
 import os
 import docopt
-import tables
 import times
 
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
@@ -56,8 +55,7 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
     stop = uint32(istop)
   # even with an offset, have to start from the beginning of the array
   # to get the proper depth.
-  for change in arr:
-    depth += int(change)
+  for depth in arr:
     if i == stop:
       break
     last_yield = false
@@ -85,6 +83,9 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
+
+proc region_sort(a, b: region_t): int =
+   return int(a.start) - int(b.start)
 
 iterator gen_start_ends(c: Cigar, ipos: int): pair =
   # generate start, end pairs given a cigar string and a position offset.
@@ -182,7 +183,6 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
           yield tgt.tid
-          #for p in gen_depths(arr, 0, 0, uint32(tgt.tid)): yield p
           flushFile(stdout)
         tgt = targets[rec.b.core.tid]
         if arr == nil or len(arr) != int(tgt.length+1):
@@ -248,10 +248,10 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
 
   if tgt != nil:
     yield tgt.tid
-    #for p in gen_depths(arr, 0, 0, uint32(tgt.tid)): yield p
   flushFile(stdout)
 
-iterator bed_gen(bed: string): region_t =
+proc bed_gen(bed: string): TableRef[string, seq[region_t]] =
+  var bed_regions = newTable[string, seq[region_t]]()
   var hf = hts.hts_open(cstring(bed), "r")
   var kstr: hts.kstring_t
   kstr.l = 0
@@ -260,25 +260,29 @@ iterator bed_gen(bed: string): region_t =
   while hts_getline(hf, cint(10), addr kstr) > 0:
     if ($kstr.s).startswith("track "):
       continue
-    yield bed_line_to_region($kstr.s)
+    var v = bed_line_to_region($kstr.s)
+    if v == nil: continue
+    discard bed_regions.hasKeyOrPut(v.chrom, new_seq[region_t]())
+    bed_regions[v.chrom].add(v)
 
   hts.free(kstr.s)
+  return bed_regions
 
-iterator window_gen(window: uint32, targets: seq[hts.Target]): region_t =
-  for t in targets:
-    var start:uint32 = 0
-    while start + window < t.length:
-      yield region_t(chrom: t.name, start: start, stop: start + window)
-      start += window
-    if start != t.length:
-      yield region_t(chrom: t.name, start: start, stop: t.length)
+iterator window_gen(window: uint32, t: hts.Target): region_t =
+  var start:uint32 = 0
+  while start + window < t.length:
+    yield region_t(chrom: t.name, start: start, stop: start + window)
+    start += window
+  if start != t.length:
+    yield region_t(chrom: t.name, start: start, stop: t.length)
 
-iterator region_gen(bed_or_window: string, targets: seq[hts.Target]): region_t =
-  if bed_or_window != nil:
-    if bed_or_window.isdigit():
-      for r in window_gen(uint32(S.parse_int(bed_or_window)), targets): yield r
+iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[string, seq[region_t]]): region_t =
+    if len(bed_regions) == 0:
+      for r in window_gen(window, target): yield r
     else:
-      for r in bed_gen(bed_or_window): yield r
+      if bed_regions.contains(target.name):
+        for r in bed_regions[target.name]: yield r
+        bed_regions.del(target.name)
 
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   if vals == nil or start > uint32(len(vals)):
@@ -333,59 +337,68 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
       return result
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, args: Table[string, docopt.Value]) =
-  var targets = bam.hdr.targets
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
+    targets = bam.hdr.targets
     sub_targets = get_targets(targets, chrom)
     distribution: seq[int32]
-    last_chrom = ""
     rchrom : region_t
     found = false
-    target: string
     arr: coverage_t
-    prefix: string = $(args["--prefix"])
-    skip_per_base = $args["--no-per-base"] != "nil"
+    prefix: string = $(args["<prefix>"])
+    skip_per_base = args["--no-per-base"]
+    window: uint32 = 0
+    bed_regions: TableRef[string, seq[region_t]] = newTable[string, seq[region_t]]()
+    fbase: File
+    fregion: File
 
   distribution = new_seq[int32](1000)
+  if not skip_per_base:
+    # TODO: write directly to bgzf.
+    discard open(fbase, prefix & ".per-base.txt", fmWrite)
 
-  var f: File
-  var r : seq[string] = sequtils.to_seq(region.rsplit("/", 1))
-  var base: string = r[len(r) - 1]
-  discard open(f, prefix & "." & base & ".bed", fmWrite)
-
-  # TODO: if chrom is not set and skip_per_base is not true, then we must loop over the sub_targets in order
-  # TODO: this is hard because if region is a bed file, it might be in different order to sub_targets.
-  # TODO: in that case, we sort all regions from bed file to match chrom order in sub_targets.
-  for r in region_gen(region, sub_targets):
-    if r == nil: continue
-    if chrom != nil and r.chrom != chrom.chrom: continue
-    # the firs time seeing the chrom, we fill the coverage array for
-    # the entire chrom.
-    if r.chrom != last_chrom:
-      target = r.chrom & "\t"
-      var j = 0
-      rchrom = region_t(chrom: r.chrom)
-      for tid in coverage(bam, arr, rchrom, mapq, eflag):
-        arr.to_coverage()
-        inc(j)
-      last_chrom = r.chrom
-      if j == 0: # didn't find this chrom
-        stderr.write_line "[mosdepth] chromosome: ", r.chrom, " not found in alignments"
-        found = false
-      else:
-        found = true
-    #if not found: continue # now just writes from imean
-
-    var me = imean(arr, r.start, r.stop)
-    var m = su.format_float(me, ffDecimal, precision=2)
-    if r.name == nil:
-      f.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+  if region != nil:
+    # TODO: write directly to bgzf.
+    discard open(fregion, prefix & ".regions.bed", fmWrite)
+    if region.isdigit():
+      window = uint32(S.parse_int(region))
     else:
-      f.write_line(target, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
-    if arr != nil and found:
-      distribution.inc(arr, r.start, r.stop)
-    write_distribution(distribution, prefix & ".dist.txt")
+      bed_regions = bed_gen(region)
+
+  for target in sub_targets:
+    # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
+    if skip_per_base and len(bed_regions) != 0 and not bed_regions.contains(target.name):
+      continue
+    rchrom = region_t(chrom: target.name)
+    var j = 0
+    for tid in coverage(bam, arr, rchrom, mapq, eflag):
+      arr.to_coverage()
+      inc(j)
+    if j == 0: continue
+
+    var starget = target.name & "\t"
+    if region != nil:
+      for r in region_gen(window, target, bed_regions):
+        var me = imean(arr, r.start, r.stop)
+        var m = su.format_float(me, ffDecimal, precision=2)
+        if r.name == nil:
+          fregion.write_line(starget, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+        else:
+          fregion.write_line(starget, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
+        distribution.inc(arr, r.start, r.stop)
+    else:
+      distribution.inc(arr, uint32(0), uint32(len(arr)))
+
+    if skip_per_base: continue
+    for p in gen_depths(arr, 0, 0, uint32(target.tid)):
+      fbase.write_line(starget, intToStr(int(p.stop)), "\t", intToStr(int(p.value)))
+  write_distribution(distribution, prefix & ".mosdepth.dist.txt")
+  for chrom, regions in bed_regions:
+    stderr.write_line("[mosdepth] chromosome:", chrom, " from bed with" , len(regions), " not found")
+  if fregion != nil: close(fregion)
+  if fbase != nil: close(fbase)
+
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
   if r == nil: return
@@ -399,17 +412,25 @@ when(isMainModule):
   when not defined(release):
     stderr.write_line "[mosdepth] WARNING: built debug mode. will be slow"
 
-  let doc = """
-  mosdepth
+  let version = "mosdepth 0.1.8"
+  let doc = format("""
+  $version
 
-  Usage: mosdepth [options] <BAM-or-CRAM>
+  Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
+
+Arguments:
+
+  <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
+                          `{prefix}.per-base.txt` (unless -n/--no-per-base is specified)
+                          `{prefix}.regions.bed` (if --by is specified)
+
+  <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
 Common Options:
   
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -b --by <bed|window>       BED file or (integer) window-sizes.
-  -p --prefix <path>         prefix for output. output will go to prefix.$(basename --by).bed.
   -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
@@ -418,9 +439,10 @@ Other options:
   -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -h --help                  show help
-  """
+  """ % ["version", version])
 
-  let args = docopt(doc, version = "mosdepth 0.1.8")
+
+  let args = docopt(doc, version = version)
   let mapq = S.parse_int($args["--mapq"])
   var window_based = false 
   var region: string
@@ -436,7 +458,10 @@ Other options:
     eflag: uint16 = uint16(S.parse_int($args["--flag"]))
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
-    bam = hts.open_hts($args["<BAM-or-CRAM>"], threads=threads, index=chrom != nil or window_based, fai=fasta)
+    bam = hts.open_hts($args["<BAM-or-CRAM>"], threads=threads, index=true, fai=fasta)
+  if bam.idx == nil:
+    stderr.write_line("[mosdepth] error alignment file must be indexed")
+    quit(2)
 
   discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
                          SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
