@@ -85,10 +85,15 @@ A large window size makes `mosdepth` do less work formatting numbers.
 Unless you want to install [nim](https://nim-lang.org), simply download the
 [binary from the releases](https://github.com/brentp/mosdepth/releases).
 
-If you get an error about "`libhts.so` not found", set `LD_LIBRARY_PATH`
-to the directory that contains `libhts.so`. e.g.
+`mosdepth` uses requires htslib version 1.4 or later. If you get an error 
+about "`libhts.so` not found", set `LD_LIBRARY_PATH` to the directory that 
+contains `libhts.so`. e.g.
 
-```LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h```
+```LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h
+```
+
+If you get the error `could not import: hts_check_EOF` you may need to 
+install a more recent version of htslib.
 
 If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
 and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
