@@ -89,8 +89,7 @@ Unless you want to install [nim](https://nim-lang.org), simply download the
 about "`libhts.so` not found", set `LD_LIBRARY_PATH` to the directory that 
 contains `libhts.so`. e.g.
 
-```LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h
-```
+```LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h```
 
 If you get the error `could not import: hts_check_EOF` you may need to 
 install a more recent version of htslib.
