@@ -11,7 +11,7 @@ it can output mean per-window depth given a window size--as would be used for CN
 
 it can output the mean per-region given a BED file of regions.
 
-it can create a distribution of proportion of bases covered at or above a given threshhold.
+it creates a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
 
 ## usage
 
@@ -67,7 +67,7 @@ and the distribution of depths will go to `sample-output.mosdepth.dist.txt`
 For 500-base windows
 
 ```
-mosdepth -n -d $sample.dist --by 500 sample.wgs $sample.wgs.bam
+mosdepth -n --by 500 sample.wgs $sample.wgs.bam
 ```
 
 `-n` means don't output per-base data, this will make `mosdepth`
@@ -102,12 +102,18 @@ and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/inst
 
 This is **useful for QC**.
 
-The `--distribution` option outputs a cumulative distribution indicating then
-proportion of genome bases (or the proportion of the `--by`) that were covered
-for at least a given coverage value.
+The `$prefix.mosdepth.dist.txt` file contains, a cumulative distribution indicating then
+proportion of bases (or the proportion of the `--by`) that were covered
+for at least a given coverage value. It does this for each chromosom, and for then
+whole genome.
 
-This will write a file to the requested path with values indicating the coverage
-threshold and the proportion of bases covered at that threshold.
+Each row will indicate:
+ + chromosome (or "genome")
+ + coverage level
+ + proportion of bases covered at that level
+
+The last value in each chromosome will be coverage level of 0 aligned with
+1.0 bases covered at that level.
 
 A python plotting script is provided in `scripts/plot-dist.py` that will make 
 plots like below. Use is `python scripts/plot-dist.py *.dist` and the output
@@ -118,7 +124,7 @@ Below we show this for samples with ~60X coverage:
 
 ![WGS Example](https://user-images.githubusercontent.com/1739/29646192-2a2a6126-883f-11e7-91ab-049295eb3531.png "WGS Example")
 
-We can also run `mosdepth` on just the Y chromosome (--chrom Y) to verify that males and females
+We can also plot just the Y chromosome to verify that males and females
 track separately. Below, we that see female samples cluster along the axes while male samples have
 close to 30X coverage for almost 40% of the genome.
 
@@ -151,7 +157,7 @@ at any position, it is slower for small, 1-time regional queries. It is, however
 window-based or BED-based regions, because it first calculates the full chromosome coverage
 and then reports the coverage for each region in that chromosome. Another downside is it uses
 more memory than samtools. The amount of memory is approximately equal to 32-bits * longest chrom
-length, so for the 249MB chromosome 1, it will require 500MB of memory.
+length, so for the 249MB chromosome 1, it will require 1GB of memory.
 
 `mosdepth` is written in [nim](https://nim-lang.org/) and it uses our [htslib](https://github.com/samtools/htslib)
 via our nim wrapper [hts-nim](https://github.com/brentp/hts-nim/)

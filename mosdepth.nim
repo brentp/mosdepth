@@ -48,7 +48,6 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
     i = uint32(0)
     last_i = uint32(0)
     stop: uint32
-    last_yield: bool
   if istop <= 0:
     stop = uint32(len(arr)-1)
   else:
@@ -58,34 +57,30 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
   for depth in arr:
     if i == stop:
       break
-    last_yield = false
     if i < offset or depth == last_depth:
       inc(i)
       continue
 
     if last_depth != -1:
       yield (last_i, i, uint32(last_depth), tid)
-      last_yield = true
 
     last_depth = depth
     last_i = i
+    if i + 1 == stop: break
     inc(i)
-  if last_i < uint32(len(arr)-1):
-    yield (last_i, uint32(len(arr)-1), uint32(0), tid)
+
+  if last_i < stop:
+    yield (last_i, uint32(len(arr)-1), uint32(last_depth), tid)
 
   # this is horrible, but it works. we don't know
   # if we've already printed the record on not.
-  if  last_yield != (last_i == i):
-    if last_i == i:
+  elif  last_i != i:
       yield (last_i - 1, i, uint32(last_depth), tid)
-    else:
+  else:
       yield (last_i, i, uint32(last_depth), tid)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
-
-proc region_sort(a, b: region_t): int =
-   return int(a.start) - int(b.start)
 
 iterator gen_start_ends(c: Cigar, ipos: int): pair =
   # generate start, end pairs given a cigar string and a position offset.
@@ -307,11 +302,7 @@ proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
     if v < 0: continue
     inc(d[v])
 
-proc write_distribution(d: var seq[int32], path:string) =
-  var fh:File
-  if not open(fh, path, fmWrite):
-    stderr.write_line("[mosdepth] could not open file:", path)
-    quit(1)
+proc write_distribution(chrom: string, d: var seq[int32], fh:File) =
   var sum: int64
   for v in d: sum += int64(v)
   var cum: float64 = 0
@@ -323,9 +314,10 @@ proc write_distribution(d: var seq[int32], path:string) =
     var irev = len(d) - i - 1
     if irev > 300 and v == 0: continue
     cum += float64(v) / float64(sum)
-    if cum < 5e-6: continue
-    fh.write_line($irev & "\t" & su.format_float(cum, ffDecimal, precision=5))
-  fh.close()
+    if cum < 8e-5: continue
+    fh.write_line(chrom, "\t", $irev & "\t" & su.format_float(cum, ffDecimal, precision=4))
+  # reverse it back because we use to update the full genome
+  reverse(d)
 
 proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
   if r == nil:
@@ -336,15 +328,23 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
       result[0] = t
       return result
 
+# copy the chromosome array into the genome-wide and then zero it out.
+proc copy_and_zero(afrom: var seq[int32], ato: var seq[int32]) =
+  if len(afrom) > len(ato):
+    ato.set_len(afrom.len)
+
+  for i in 0..<afrom.len:
+    ato[i] += afrom[i]
+    afrom[i] = 0
+
+
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
     targets = bam.hdr.targets
     sub_targets = get_targets(targets, chrom)
-    distribution: seq[int32]
     rchrom : region_t
-    found = false
     arr: coverage_t
     prefix: string = $(args["<prefix>"])
     skip_per_base = args["--no-per-base"]
@@ -352,11 +352,17 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     bed_regions: TableRef[string, seq[region_t]] = newTable[string, seq[region_t]]()
     fbase: File
     fregion: File
+    fh_dist:File
 
-  distribution = new_seq[int32](1000)
+  var distribution = new_seq[int32](1000)
+  var chrom_distribution = new_seq[int32](1000)
   if not skip_per_base:
     # TODO: write directly to bgzf.
     discard open(fbase, prefix & ".per-base.txt", fmWrite)
+
+  if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
+    stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
+
 
   if region != nil:
     # TODO: write directly to bgzf.
@@ -386,19 +392,26 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
           fregion.write_line(starget, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
         else:
           fregion.write_line(starget, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
-        distribution.inc(arr, r.start, r.stop)
+        chrom_distribution.inc(arr, r.start, r.stop)
     else:
-      distribution.inc(arr, uint32(0), uint32(len(arr)))
+      chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
+
+    # write the distribution for each chrom
+    write_distribution(target.name, chrom_distribution, fh_dist)
+    # then copy it to the genome distribution
+    if region == nil:
+      copy_and_zero(chrom_distribution, distribution)
 
     if skip_per_base: continue
     for p in gen_depths(arr, 0, 0, uint32(target.tid)):
       fbase.write_line(starget, intToStr(int(p.stop)), "\t", intToStr(int(p.value)))
-  write_distribution(distribution, prefix & ".mosdepth.dist.txt")
+  if region == nil:
+    write_distribution("genome", distribution, fh_dist)
   for chrom, regions in bed_regions:
     stderr.write_line("[mosdepth] chromosome:", chrom, " from bed with" , len(regions), " not found")
   if fregion != nil: close(fregion)
   if fbase != nil: close(fbase)
-
+  close(fh_dist)
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
   if r == nil: return
@@ -441,10 +454,8 @@ Other options:
   -h --help                  show help
   """ % ["version", version])
 
-
   let args = docopt(doc, version = version)
   let mapq = S.parse_int($args["--mapq"])
-  var window_based = false 
   var region: string
   if $args["--by"] != "nil":
     region = $args["--by"]
