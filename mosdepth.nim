@@ -178,7 +178,6 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
           yield tgt.tid
-          flushFile(stdout)
         tgt = targets[rec.b.core.tid]
         if arr == nil or len(arr) != int(tgt.length+1):
           # must create a new array in some cases.
@@ -243,7 +242,6 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
 
   if tgt != nil:
     yield tgt.tid
-  flushFile(stdout)
 
 proc bed_gen(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
@@ -453,7 +451,7 @@ Common Options:
   
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       BED file or (integer) window-sizes.
+  -b --by <bed|window>       optional BED file or (integer) window-sizes.
   -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 

@@ -5,7 +5,6 @@ import itertools as it
 from operator import itemgetter
 import collections
 import sys
-figpath = "dist.png"
 
 traces = collections.defaultdict(list)
 chroms = collections.OrderedDict()
@@ -63,7 +62,6 @@ footer = """
 chr_tmpl = """
 Plotly.newPlot('plot-div-$chrom', $data, layout);
 """
-
 
 tmpl = string.Template(tmpl)
 with open("dist.html", "w") as html:

@@ -4,16 +4,14 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencin
 
 [![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=master)](https://travis-ci.org/brentp/mosdepth)
 
-`mosdepth` can output per-base depth about twice as fast `samtools depth`--about 25 minutes of CPU time for a 30X
-genome.
+`mosdepth` can:
 
-it can output mean per-window depth given a window size--as would be used for CNV calling.
++ output per-base depth about twice as fast `samtools depth`--about 25 minutes of CPU time for a 30X genome.
++ output mean per-window depth given a window size--as would be used for CNV calling.
++ output the mean per-region given a BED file of regions.
++ create a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
 
-it can output the mean per-region given a BED file of regions.
-
-it creates a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
-
-when appropriate, output files are bgzipped and indexed for ease of use.
+when appropriate, the output files are bgzipped and indexed for ease of use.
 
 ## usage
 
@@ -34,7 +32,7 @@ Common Options:
   
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       BED file or (integer) window-sizes.
+  -b --by <bed|window>       optional BED file or (integer) window-sizes.
   -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
@@ -60,7 +58,7 @@ mosdepth --by capture.bed sample-output sample.exome.bam
 For a 5.5GB exome file and all 1,195,764 ensembl exons as the regions,
 this completes in 1 minute 38 seconds with a single CPU.
 
-The per-base output will go to `sample-output.per-base.bed.gz`,
+Per-base output will go to `sample-output.per-base.bed.gz`,
 the mean for each region will go to `sample-output.regions.bed.gz`;
 each of those will be written along with a CSI index that can be
 used for tabix queries.
@@ -77,16 +75,14 @@ mosdepth -n --by 500 sample.wgs $sample.wgs.bam
 `-n` means don't output per-base data, this will make `mosdepth`
 a bit faster as there is some cost to outputting that much text.
 
-
 ### Distribution only
 
 To get only the distribution value, without the depth file or the per-base:
 
 ```
-mosdepth -n -t 3 -b 100000 $sample $bam
+mosdepth -n -t 3 $sample $bam
 ```
 
-A large window size makes `mosdepth` do less work formatting numbers.
 Output will go to `$sample.mosdepth.dist.txt`
 
 ## Installation
@@ -128,7 +124,7 @@ Below we show this for samples with ~60X coverage:
 
 ![WGS Example](https://user-images.githubusercontent.com/1739/29646192-2a2a6126-883f-11e7-91ab-049295eb3531.png "WGS Example")
 
-We can also plot just the Y chromosome to verify that males and females
+We can also view the Y chromosome to verify that males and females
 track separately. Below, we that see female samples cluster along the axes while male samples have
 close to 30X coverage for almost 40% of the genome.
 
