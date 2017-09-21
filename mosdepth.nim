@@ -11,7 +11,7 @@ import times
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
 type
   pair = tuple[pos: int, value: int32]
-  depth_t = tuple[start: uint32, stop: uint32, value: uint32, tid: uint32]
+  depth_t = tuple[start: int, stop: int, value: int, tid: uint32]
   region_t = ref object
     chrom: string
     start: uint32
@@ -38,20 +38,20 @@ proc to_coverage(c: var coverage_t) =
 proc length(r: region_t): int =
   return int(r.stop - r.start)
 
-iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): depth_t =
+iterator gen_depths(arr: coverage_t, offset: int, istop: int, tid: uint32): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
   var
     last_depth = -1
     depth = 0
-    i = uint32(0)
-    last_i = uint32(0)
-    stop: uint32
+    i = 0
+    last_i = 0
+    stop: int
   if istop <= 0:
-    stop = uint32(len(arr)-1)
+    stop = len(arr)-1
   else:
-    stop = uint32(istop)
+    stop = istop
   # even with an offset, have to start from the beginning of the array
   # to get the proper depth.
   for depth in arr:
@@ -62,7 +62,7 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
       continue
 
     if last_depth != -1:
-      yield (last_i, i, uint32(last_depth), tid)
+      yield (last_i, i, last_depth, tid)
 
     last_depth = depth
     last_i = i
@@ -70,14 +70,14 @@ iterator gen_depths(arr: coverage_t, offset: uint32, istop: int, tid: uint32): d
     inc(i)
 
   if last_i < stop:
-    yield (last_i, uint32(len(arr)-1), uint32(last_depth), tid)
+    yield (last_i, len(arr)-1, last_depth, tid)
 
   # this is horrible, but it works. we don't know
   # if we've already printed the record on not.
   elif  last_i != i:
-      yield (last_i - 1, i, uint32(last_depth), tid)
+      yield (last_i - 1, i, last_depth, tid)
   else:
-      yield (last_i, i, uint32(last_depth), tid)
+      yield (last_i, i, last_depth, tid)
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -350,19 +350,18 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     skip_per_base = args["--no-per-base"]
     window: uint32 = 0
     bed_regions: TableRef[string, seq[region_t]] = newTable[string, seq[region_t]]()
-    fbase: File
+    fbase: BGZI
     fregion: File
     fh_dist:File
 
   var distribution = new_seq[int32](1000)
   var chrom_distribution = new_seq[int32](1000)
   if not skip_per_base:
-    # TODO: write directly to bgzf.
-    discard open(fbase, prefix & ".per-base.txt", fmWrite)
+    fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true)
+    #base.bgz.set_threads(1)
 
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
-
 
   if region != nil:
     # TODO: write directly to bgzf.
@@ -404,13 +403,15 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
     if skip_per_base: continue
     for p in gen_depths(arr, 0, 0, uint32(target.tid)):
-      fbase.write_line(starget, intToStr(int(p.stop)), "\t", intToStr(int(p.value)))
+      discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
+      #discard fbase.write(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value) & "\n")
+
   if region == nil:
     write_distribution("genome", distribution, fh_dist)
   for chrom, regions in bed_regions:
     stderr.write_line("[mosdepth] chromosome:", chrom, " from bed with" , len(regions), " not found")
   if fregion != nil: close(fregion)
-  if fbase != nil: close(fbase)
+  if fbase != nil: discard close(fbase)
   close(fh_dist)
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
@@ -422,7 +423,7 @@ proc check_chrom(r: region_t, targets: seq[Target]) =
   quit(1)
 
 when(isMainModule):
-  when not defined(release):
+  when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built debug mode. will be slow"
 
   let version = "mosdepth 0.1.8"
