@@ -2,7 +2,7 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencin
 
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
-[![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=travis)](https://travis-ci.org/brentp/mosdepth)
+[![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=master)](https://travis-ci.org/brentp/mosdepth)
 
 `mosdepth` can output per-base depth about twice as fast `samtools depth`--about 25 minutes of CPU time for a 30X
 genome.
@@ -12,6 +12,8 @@ it can output mean per-window depth given a window size--as would be used for CN
 it can output the mean per-region given a BED file of regions.
 
 it creates a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
+
+when appropriate, output files are bgzipped and indexed for ease of use.
 
 ## usage
 
@@ -23,8 +25,8 @@ mosdepth
 Arguments:
 
   <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
-                          `{prefix}.mosdepth.per-base.txt` (unless -n/--no-per-base is specified)
-                          `{prefix}.mosdepth.regions.bed` (if --by is specified)
+                          `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
+                          `{prefix}.regions.bed.gz` (if --by is specified)
 
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
@@ -58,9 +60,11 @@ mosdepth --by capture.bed sample-output sample.exome.bam
 For a 5.5GB exome file and all 1,195,764 ensembl exons as the regions,
 this completes in 1 minute 38 seconds with a single CPU.
 
-The per-base output will go to `sample-output.per-base.txt`,
-the mean for each region will go to `sample-output.regions.bed`,
-and the distribution of depths will go to `sample-output.mosdepth.dist.txt`
+The per-base output will go to `sample-output.per-base.bed.gz`,
+the mean for each region will go to `sample-output.regions.bed.gz`;
+each of those will be written along with a CSI index that can be
+used for tabix queries.
+The distribution of depths will go to `sample-output.mosdepth.dist.txt`
 
 ### WGS example
 
@@ -117,7 +121,7 @@ The last value in each chromosome will be coverage level of 0 aligned with
 
 A python plotting script is provided in `scripts/plot-dist.py` that will make 
 plots like below. Use is `python scripts/plot-dist.py *.dist` and the output
-is `dist.png`.
+is `dist.html` with a plot for each chromosome.
 
 Using something like that, we can plot the distribution from the entire genome.
 Below we show this for samples with ~60X coverage:
@@ -161,40 +165,6 @@ length, so for the 249MB chromosome 1, it will require 1GB of memory.
 
 `mosdepth` is written in [nim](https://nim-lang.org/) and it uses our [htslib](https://github.com/samtools/htslib)
 via our nim wrapper [hts-nim](https://github.com/brentp/hts-nim/)
-
-## output
-
-When the `--by` argument is *not* specified, the output of `mosdepth`. The output looks like:
-
-```
-chr1	216	0
-chr1	232	1
-chr1	236	2
-chr1	255	1
-chr1	9991	0
-chr1	9992	1
-chr1	9993	2
-chr1	9994	6
-chr1	9995	5
-chr1	9996	6
-```
-
-Each line indicates the end of the previous coverage level and the start of the next.
-
-So the first line indicates that:
-
-+ the values on chr1 from 0 to 216 (in 0-based, half-open (BED) coordinates) have a depth of 0. 
-+ the values on chr1 from 216 to 232 have a depth of 1 
-+ 232..236 == 2
-+ 236..255 == 1
-+ 255..9991 == 0
-+ and so on ...
-
-This is more compact than BED, but it's simple to convert to BED as:
-
-```
-awk 'BEGIN{start=0;last="";OFS="\t"}{ if($1!=last){start=0} print $1,start,$2,$3;start=$2;last=$1}'
-```
 
 ## speed and memory comparison
 

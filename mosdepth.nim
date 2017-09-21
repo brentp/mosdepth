@@ -351,7 +351,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     window: uint32 = 0
     bed_regions: TableRef[string, seq[region_t]] = newTable[string, seq[region_t]]()
     fbase: BGZI
-    fregion: File
+    fregion: BGZI
     fh_dist:File
 
   var distribution = new_seq[int32](1000)
@@ -365,7 +365,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
   if region != nil:
     # TODO: write directly to bgzf.
-    discard open(fregion, prefix & ".regions.bed", fmWrite)
+    fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true)
     if region.isdigit():
       window = uint32(S.parse_int(region))
     else:
@@ -384,13 +384,16 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
     var starget = target.name & "\t"
     if region != nil:
+      var line = new_string_of_cap(16384)
       for r in region_gen(window, target, bed_regions):
         var me = imean(arr, r.start, r.stop)
         var m = su.format_float(me, ffDecimal, precision=2)
         if r.name == nil:
-          fregion.write_line(starget, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", m)
+          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
         else:
-          fregion.write_line(starget, intToStr(int(r.start)), "\t", intToStr(int(r.stop)), "\t", r.name, "\t", m)
+          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
+        discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
+        line = line[0..<0]
         chrom_distribution.inc(arr, r.start, r.stop)
     else:
       chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
@@ -409,9 +412,15 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   if region == nil:
     write_distribution("genome", distribution, fh_dist)
   for chrom, regions in bed_regions:
-    stderr.write_line("[mosdepth] chromosome:", chrom, " from bed with" , len(regions), " not found")
-  if fregion != nil: close(fregion)
-  if fbase != nil: discard close(fbase)
+    stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with" , len(regions), " not found")
+  if fregion != nil:
+    if close(fregion) != 0:
+      stderr.write_line("[mosdepth] error writing region file\n")
+      quit()
+  if fbase != nil:
+    if close(fbase) != 0:
+      stderr.write_line("[mosdepth] error writing per-base file\n")
+      quit()
   close(fh_dist)
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
@@ -435,8 +444,8 @@ when(isMainModule):
 Arguments:
 
   <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
-                          `{prefix}.per-base.txt` (unless -n/--no-per-base is specified)
-                          `{prefix}.regions.bed` (if --by is specified)
+                          `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
+                          `{prefix}.regions.bed.gz` (if --by is specified)
 
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
