@@ -270,7 +270,7 @@ iterator window_gen(window: uint32, t: hts.Target): region_t =
     yield region_t(chrom: t.name, start: start, stop: t.length)
 
 iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[string, seq[region_t]]): region_t =
-    if len(bed_regions) == 0:
+    if bed_regions == nil:
       for r in window_gen(window, target): yield r
     else:
       if bed_regions.contains(target.name):
@@ -290,7 +290,14 @@ const MAX_COVERAGE = int32(400000)
 proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
   var v:int32
   var L = int32(len(d)-1)
-  for i in start .. <stop:
+  if int(start) >= len(coverage):
+    stderr.write_line("[mosdepth] warning requested interval outside of chromosome range:", start, "..", stop)
+    return
+  var istop = stop
+  if int(stop) > len(coverage):
+    istop = uint32(len(coverage))
+
+  for i in start..<istop:
     v = coverage[int(i)]
     if v > MAX_COVERAGE:
       v = MAX_COVERAGE - 10
@@ -303,6 +310,7 @@ proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
 proc write_distribution(chrom: string, d: var seq[int32], fh:File) =
   var sum: int64
   for v in d: sum += int64(v)
+  if sum < 1: return
   var cum: float64 = 0
   # reverse and then cumsum so that e.g. a value of 1 is the proportion of
   # bases with a coverage of at least 1.
@@ -347,7 +355,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     prefix: string = $(args["<prefix>"])
     skip_per_base = args["--no-per-base"]
     window: uint32 = 0
-    bed_regions: TableRef[string, seq[region_t]] = newTable[string, seq[region_t]]()
+    bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
     fbase: BGZI
     fregion: BGZI
     fh_dist:File
@@ -356,7 +364,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   var chrom_distribution = new_seq[int32](1000)
   if not skip_per_base:
     fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true)
-    #base.bgz.set_threads(1)
+    if S.parse_int($args["--threads"]) > 0:
+      fbase.bgz.set_threads(1)
 
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
@@ -371,7 +380,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
   for target in sub_targets:
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
-    if skip_per_base and len(bed_regions) != 0 and not bed_regions.contains(target.name):
+    if skip_per_base and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
     var j = 0
@@ -386,6 +395,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
       for r in region_gen(window, target, bed_regions):
         var me = imean(arr, r.start, r.stop)
         var m = su.format_float(me, ffDecimal, precision=2)
+
         if r.name == nil:
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
         else:
@@ -399,18 +409,18 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     # write the distribution for each chrom
     write_distribution(target.name, chrom_distribution, fh_dist)
     # then copy it to the genome distribution
-    if region == nil:
-      copy_and_zero(chrom_distribution, distribution)
+    copy_and_zero(chrom_distribution, distribution)
 
     if skip_per_base: continue
     for p in gen_depths(arr, 0, 0, uint32(target.tid)):
+      #stderr.write_line("writing\t" & starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value))
       discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
       #discard fbase.write(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value) & "\n")
 
-  if region == nil:
-    write_distribution("genome", distribution, fh_dist)
-  for chrom, regions in bed_regions:
-    stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with" , len(regions), " not found")
+  write_distribution("total", distribution, fh_dist)
+  if bed_regions != nil:
+    for chrom, regions in bed_regions:
+      stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
   if fregion != nil:
     if close(fregion) != 0:
       stderr.write_line("[mosdepth] error writing region file\n")
@@ -431,7 +441,7 @@ proc check_chrom(r: region_t, targets: seq[Target]) =
 
 when(isMainModule):
   when not defined(release) and not defined(lto):
-    stderr.write_line "[mosdepth] WARNING: built debug mode. will be slow"
+    stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
   let version = "mosdepth 0.1.8"
   let doc = format("""

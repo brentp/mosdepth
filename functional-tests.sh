@@ -20,6 +20,10 @@ run missing_chrom $exe -c nonexistent --by 20000 t tests/ovl.bam
 assert_in_stderr "[mosdepth] chromosome nonexistent not found"
 assert_exit_code 1
 
+# theres data left in the bam but the region tree is empty...
+run missing_bed_chrom $exe --by tests/missing.bed t tests/ovl.bam
+assert_exit_code 0
+
 run big_window $exe t tests/ovl.bam --by 100000000
 assert_exit_code 0
 assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
