@@ -1,5 +1,8 @@
 #!/bin/bash
 
+sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
+     curl  libssl-dev libtool autoconf automake libcurl4-openssl-dev
+
 base=$(pwd)
 if [ ! -x nim-$BRANCH/bin/nim ]; then
   git clone -b $BRANCH --depth 1 git://github.com/nim-lang/nim nim-$BRANCH/
@@ -24,6 +27,7 @@ PATH=$PATH:$base/nim-$BRANCH/bin/:$PATH:$base/nimble/src
 cd $base
 echo $PATH
 
+
 git clone --depth 1 https://github.com/nim-lang/nimble.git
 cd nimble
 nim c src/nimble
@@ -33,6 +37,7 @@ cd $base
 nimble refresh
 
 if [ ! -x hts-nim ]; then
+    cd $base
     git clone --depth 1 https://github.com/brentp/hts-nim/
     cd hts-nim && nimble install -y
 fi
@@ -40,9 +45,6 @@ fi
 set -x
 cd $base
 nimble install -y
-
-sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
-     curl  libssl-dev libtool autoconf automake libcurl4-openssl-dev
 git clone --recursive https://github.com/samtools/htslib.git
 
 cd htslib && git checkout 1.5 && autoheader && autoconf && ./configure --enable-libcurl
