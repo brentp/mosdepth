@@ -4,12 +4,12 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencin
 
 [![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=master)](https://travis-ci.org/brentp/mosdepth)
 
-`mosdepth` can:
+`mosdepth` can output:
 
-+ output per-base depth about twice as fast `samtools depth`--about 25 minutes of CPU time for a 30X genome.
-+ output mean per-window depth given a window size--as would be used for CNV calling.
-+ output the mean per-region given a BED file of regions.
-+ create a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
++ per-base depth about 2x as fast `samtools depth`--about 25 minutes of CPU time for a 30X genome.
++ mean per-window depth given a window size--as would be used for CNV calling.
++ the mean per-region given a BED file of regions.
++ a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
 
 when appropriate, the output files are bgzipped and indexed for ease of use.
 
@@ -55,7 +55,7 @@ To calculate the coverage in each exome capture region:
 ```
 mosdepth --by capture.bed sample-output sample.exome.bam
 ```
-For a 5.5GB exome file and all 1,195,764 ensembl exons as the regions,
+For a 5.5GB exome BAM and all 1,195,764 ensembl exons as the regions,
 this completes in 1 minute 38 seconds with a single CPU.
 
 Per-base output will go to `sample-output.per-base.bed.gz`,
@@ -77,7 +77,7 @@ a bit faster as there is some cost to outputting that much text.
 
 ### Distribution only
 
-To get only the distribution value, without the depth file or the per-base:
+To get only the distribution value, without the depth file or the per-base and using 3 threads:
 
 ```
 mosdepth -n -t 3 $sample $bam
@@ -102,7 +102,7 @@ and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/inst
 
 This is **useful for QC**.
 
-The `$prefix.mosdepth.dist.txt` file contains, a cumulative distribution indicating then
+The `$prefix.mosdepth.dist.txt` file contains, a cumulative distribution indicating the
 proportion of bases (or the proportion of the `--by`) that were covered
 for at least a given coverage value. It does this for each chromosom, and for then
 whole genome.
@@ -117,7 +117,7 @@ The last value in each chromosome will be coverage level of 0 aligned with
 
 A python plotting script is provided in `scripts/plot-dist.py` that will make 
 plots like below. Use is `python scripts/plot-dist.py *.dist` and the output
-is `dist.html` with a plot for each chromosome.
+is `dist.html` with a plot for the full set along with one for each chromosome.
 
 Using something like that, we can plot the distribution from the entire genome.
 Below we show this for samples with ~60X coverage:

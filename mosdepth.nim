@@ -487,7 +487,8 @@ Other options:
     eflag: uint16 = uint16(S.parse_int($args["--flag"]))
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
-    bam = hts.open_hts($args["<BAM-or-CRAM>"], threads=threads, index=true, fai=fasta)
+    bam:Bam
+  open(bam, $args["<BAM-or-CRAM>"], threads=threads, index=true, fai=fasta)
   if bam.idx == nil:
     stderr.write_line("[mosdepth] error alignment file must be indexed")
     quit(2)
