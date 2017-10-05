@@ -185,6 +185,13 @@ under 9 minutes of user time with 3 threads.
 |  CRAM  |  samtools  |    1     | base   |    1.79       | 45:21    |  451   |
 |  BAM   |  bedtools  |    1     | base   |    5.31       | 2:14:44  |  1908  |
 
+
+Note that the threads to `mosdepth` (and samtools) are decompression threads. After
+about 4 threads, there is no benefit for additional threads:
+
+![mosdepth-scaling](https://user-images.githubusercontent.com/1739/31246294-256d1b7c-a9ca-11e7-8e28-6c4d07cba3f5.png)
+
+
 ### Accuracy
 
 We compared `samtools depth` with default arguments to `mosdepth` without overlap detection and discovered **no

@@ -119,7 +119,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
     if tid != -1:
       if stop == 0:
         stop = targets[tid].length
-      for r in bam.queryi(uint32(tid), int(region.start), int(stop)):
+      for r in bam.queryi(tid, int(region.start), int(stop)):
         yield r
     else:
       for r in bam.query(region.chrom, int(region.start), int(stop)):
@@ -243,7 +243,7 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
   if tgt != nil:
     yield tgt.tid
 
-proc bed_gen(bed: string): TableRef[string, seq[region_t]] =
+proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
   var hf = hts.hts_open(cstring(bed), "r")
   var kstr: hts.kstring_t
@@ -371,12 +371,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
   if region != nil:
-    # TODO: write directly to bgzf.
     fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true)
     if region.isdigit():
       window = uint32(S.parse_int(region))
     else:
-      bed_regions = bed_gen(region)
+      bed_regions = bed_to_table(region)
 
   for target in sub_targets:
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
