@@ -127,7 +127,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
 
 proc bed_line_to_region(line: string): region_t =
    var
-     cse = sequtils.to_seq(line.strip().split("\t"))
+     cse = line.strip().split('\t', 5)
 
    if len(cse) < 3:
      stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
@@ -253,6 +253,8 @@ proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   while hts_getline(hf, cint(10), addr kstr) > 0:
     if ($kstr.s).startswith("track "):
       continue
+    if $kstr.s[0] == "#":
+      continue
     var v = bed_line_to_region($kstr.s)
     if v == nil: continue
     discard bed_regions.hasKeyOrPut(v.chrom, new_seq[region_t]())
@@ -363,9 +365,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   var distribution = new_seq[int32](1000)
   var chrom_distribution = new_seq[int32](1000)
   if not skip_per_base:
+    # can't use set-threads when indexing on the fly so this must
+    # not call set_threads().
     fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true)
-    if S.parse_int($args["--threads"]) > 0:
-      fbase.bgz.set_threads(1)
 
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")

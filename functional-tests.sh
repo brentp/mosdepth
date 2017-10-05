@@ -6,7 +6,9 @@ test -e ssshtest || wget -q https://raw.githubusercontent.com/ryanlayer/ssshtest
 
 set -o nounset
 
+set -e
 nim c mosdepth.nim
+set +e
 exe=./mosdepth
 bam=/data/human/NA12878.subset.bam
 
