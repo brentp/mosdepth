@@ -3,7 +3,7 @@
 sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
      curl  libssl-dev libtool autoconf automake libcurl4-openssl-dev
 
-base=$(pwd)
+export base=$(pwd)
 if [ ! -x nim-$BRANCH/bin/nim ]; then
   git clone -b $BRANCH --depth 1 git://github.com/nim-lang/nim nim-$BRANCH/
   cd nim-$BRANCH

@@ -132,7 +132,6 @@ proc bed_line_to_region(line: string): region_t =
    if len(cse) < 3:
      stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
      return nil
-
    var
      s = S.parse_int(cse[1])
      e = S.parse_int(cse[2])
@@ -161,7 +160,7 @@ proc get_tid(tgts: seq[hts.Target], chrom: string): int =
     if t.name == chrom:
       return t.tid
 
-iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
   # depth updates arr in-place and yields the tid for each chrom.
   var
     targets = bam.hdr.targets
@@ -177,7 +176,7 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
       continue
     if tgt == nil or tgt.tid != rec.b.core.tid:
         if tgt != nil:
-          yield tgt.tid
+          raise newException(OSError, "expected only a single chromosome per query")
         tgt = targets[rec.b.core.tid]
         if arr == nil or len(arr) != int(tgt.length+1):
           # must create a new array in some cases.
@@ -241,7 +240,9 @@ iterator coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:
     inc_coverage(rec.cigar, rec.start, arr)
 
   if tgt != nil:
-    yield tgt.tid
+    return tgt.tid
+  else:
+    return -1
 
 proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
@@ -384,11 +385,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     if skip_per_base and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var j = 0
-    for tid in coverage(bam, arr, rchrom, mapq, eflag):
-      arr.to_coverage()
-      inc(j)
-    if j == 0: continue
+    var tid = coverage(bam, arr, rchrom, mapq, eflag)
+    if tid == -1: continue
+    arr.to_coverage()
 
     var starget = target.name & "\t"
     if region != nil:
