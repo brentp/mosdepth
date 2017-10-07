@@ -360,6 +360,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     window: uint32 = 0
     bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
     fbase: BGZI
+    #fbase: BGZ
     fregion: BGZI
     fh_dist:File
 
@@ -368,7 +369,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   if not skip_per_base:
     # can't use set-threads when indexing on the fly so this must
     # not call set_threads().
-    fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true)
+    fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1)
+    #open(fbase, prefix & ".per-base.bed.gz", "w1")
 
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
@@ -413,9 +415,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
     if skip_per_base: continue
     for p in gen_depths(arr, 0, 0, uint32(target.tid)):
-      #stderr.write_line("writing\t" & starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value))
       discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
-      #discard fbase.write(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value) & "\n")
+      #discard fbase.write_line(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value))
 
   write_distribution("total", distribution, fh_dist)
   if bed_regions != nil:
