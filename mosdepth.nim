@@ -80,9 +80,10 @@ iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   else:
       yield (last_i, i, last_depth)
 
-proc linear_search(q:int, vals:seq[int], idx: ptr int) {.inline.} =
+proc linear_search*(q:int, vals:seq[int], idx: ptr int) {.inline.} =
   if q < vals[0] or q > vals[vals.high]:
     idx[] = -1
+    return
   for i, val in vals:
     if val > q:
       idx[] = i - 1
@@ -385,7 +386,7 @@ proc copy_and_zero(afrom: var seq[int32], ato: var seq[int32]) =
     ato[i] += afrom[i]
     afrom[i] = 0
 
-proc get_quantize_args(qa: string) : seq[int] =
+proc get_quantize_args*(qa: string) : seq[int] =
   if qa == "nil":
     return nil
   var a = qa

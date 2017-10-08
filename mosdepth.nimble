@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.8"
+version       = "0.1.9"
 author        = "Brent Pedersen"
 description   = "fast depth"
 license       = "MIT"
@@ -13,3 +13,7 @@ bin = @["mosdepth"]
 
 task osx_build, "build binary for osx":
   exec "nim c -o:mosdepth_osx --os:macosx --cpu:amd64 --compile_only --gen_script -c mosdepth.nim"
+
+task test, "run the tests":
+  exec "nim c --lineDir:on --debuginfo -r tests/all"
+
