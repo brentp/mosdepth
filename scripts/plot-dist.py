@@ -1,71 +1,87 @@
 import sys
 import string
 import json
-import seaborn as sns
-from matplotlib import pyplot as plt
-import numpy as np
+import itertools as it
+from operator import itemgetter
+import collections
 import sys
-figpath = "dist.png"
 
-sns.set_style('whitegrid')
-sns.set_palette('Set1', 13)
-
-traces = []
+traces = collections.defaultdict(list)
+chroms = collections.OrderedDict()
+chroms["total"] = True
 
 for f in sys.argv[1:]:
-    xs, ys = [], []
-    v50 = 0
-    sample = f.split(".")[0]
-    found = False
-    for x, y in (x.rstrip().split("\t") for x in open(f)):
-        y = float(y)
-        if y < 0.01: continue
-        if not found and y > 0.5:
-            v50 = x
-            found = True
-            print f, x, y
+    sample = f.replace(".mosdepth.dist.txt", "")
+    gen = (x.rstrip().split("\t") for x in open(f))
+    for chrom, data in it.groupby(gen, itemgetter(0)):
+        if chrom.startswith("GL"): continue
+        chroms[chrom] = True
+        xs, ys = [], []
+        v50 = 0
+        found = False
+        for _, x, y in data:
+            y = float(y)
+            if y < 0.01: continue
+            if not found and y > 0.5:
+                v50 = x
+                found = True
+                print "%s\t%s\t%s\t%.3f" % (sample, chrom, x, y)
 
-        xs.append(float(x))
-        ys.append(y)
+            xs.append(float(x))
+            ys.append(y)
 
-    traces.append({
-           'x': list(np.round(xs, 3)),
-           'y': list(np.round(ys, 3)),
-           'mode': 'lines',
-           'name': sample + (" (%.1f)" % float(v50))
-    })
-    plt.plot(xs, ys, label=sample)
+        if len(xs) > 100:
+            xs = [x for i, x in enumerate(xs) if ys[i] > 0.02]
+            ys = [y for y in ys if y > 0.02]
+            if len(xs) > 100:
+                xs = xs[::2]
+                ys = ys[::2]
 
-
-plt.xlabel("Coverage")
-plt.ylabel("Proportion of bases at coverage")
-plt.xlim(xmin=0)
-plt.ylim(ymin=0, ymax=1)
-plt.savefig(figpath)
+        traces[chrom].append({
+               'x': [round(x, 3) for x in xs],
+               'y': [round(y, 3) for y in ys],
+               'mode': 'lines',
+               'name': sample + (" (%.1f)" % float(v50))
+        })
 
 tmpl = """<html>
 <head>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+div {
+  width: 800px;
+  height: 420px;
+}
+</style
 </head>
-<body><div id="plot-div"></div>
+<body>$plot_divs</div>
 <script>
 var layout = {
     hovermode: 'closest',
-    width: 900,
-    height: 900,
-    xaxis: {title: 'Coverage', domain: [0, 1]},
-    yaxis: {title: 'Proportion of bases at coverage', domain: [0, 1]},
+    xaxis: {title: 'Coverage'},
+    yaxis: {title: 'Proportion of bases at coverage', domain: [0, 1], dtick: 0.25},
     showlegend: $showlegend,
+    autosize: true,
     legend: {
         x: 0.1,
         y: 0.1
     },
 }
-Plotly.newPlot('plot-div', $data, layout);
+"""
+footer = """
 </script>
 </body>
 </html>"""
 
+chr_tmpl = """
+Plotly.newPlot('plot-div-$chrom', $data, layout, {displayModeBar: false, displaylogo: false, fillFrame: false, autosizeable: true});
+"""
+
+tmpl = string.Template(tmpl)
 with open("dist.html", "w") as html:
-    tmpl = string.Template(tmpl)
-    html.write(tmpl.substitute(data=json.dumps(traces), showlegend="true" if len(sys.argv[1:]) < 20 else "false"))
+    divs = "\n".join("<{div}>{chrom}</{div}><div id='plot-div-{chrom}'></div><hr/>".format(
+        chrom=c, div="h2" if c == "total" else "b") for c in chroms)
+    html.write(tmpl.substitute(showlegend="true" if len(sys.argv[1:]) < 20 else "false", plot_divs=divs))
+    for chrom in chroms:
+        html.write(string.Template(chr_tmpl).substitute(chrom=chrom, data=json.dumps(traces[chrom])))
+    html.write(footer)

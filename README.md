@@ -2,30 +2,38 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targetted sequencin
 
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
-[![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=travis)](https://travis-ci.org/brentp/mosdepth)
+[![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=master)](https://travis-ci.org/brentp/mosdepth)
 
-`mosdepth` can output per-base depth about twice as fast `samtools depth`--about 25 minutes of CPU time for a 30X
-genome.
+`mosdepth` can output:
 
-it can output mean per-window depth given a window size--as would be used for CNV calling.
++ per-base depth about 2x as fast `samtools depth`--about 25 minutes of CPU time for a 30X genome.
++ mean per-window depth given a window size--as would be used for CNV calling.
++ the mean per-region given a BED file of regions.
++ a distribution of proportion of bases covered at or above a given threshhold for each chromosome and genome-wide.
 
-it can output the mean per-region given a BED file of regions.
-
-it can create a distribution of proportion of bases covered at or above a given threshhold.
+when appropriate, the output files are bgzipped and indexed for ease of use.
 
 ## usage
 
 ```
 mosdepth
 
-  Usage: mosdepth [options] <BAM-or-CRAM>
+  Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
+
+Arguments:
+
+  <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
+                          `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
+                          `{prefix}.regions.bed.gz` (if --by is specified)
+
+  <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
 Common Options:
   
-  -t --threads <threads>     number of BAM decompression threads (values <=4 recommended) [default: 0]
+  -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       BED file of regions or an (integer) window-size.
-  -d --distribution <file>   a cumulative distribution file (coverage, proportion).
+  -b --by <bed|window>       optional BED file or (integer) window-sizes.
+  -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
 Other options:
@@ -45,40 +53,37 @@ If you don't want this behavior, simply send a bed file with 3 columns.
 
 To calculate the coverage in each exome capture region:
 ```
-mosdepth --by capture.bed sample.exome.bam > sample.exome.coverage.bed
+mosdepth --by capture.bed sample-output sample.exome.bam
 ```
-For a 5.5GB exome file and all 1,195,764 ensembl exons as the regions,
+For a 5.5GB exome BAM and all 1,195,764 ensembl exons as the regions,
 this completes in 1 minute 38 seconds with a single CPU.
 
-To calculate per-base coverage:
-
-```
-mosdepth sample.exome.bam > sample.coverage.txt
-```
+Per-base output will go to `sample-output.per-base.bed.gz`,
+the mean for each region will go to `sample-output.regions.bed.gz`;
+each of those will be written along with a CSI index that can be
+used for tabix queries.
+The distribution of depths will go to `sample-output.mosdepth.dist.txt`
 
 ### WGS example
 
-For per-base whole-genome coverage:
+For 500-base windows
 
 ```
-mosdepth $sample.wgs.bam > $sample.txt
+mosdepth -n --by 500 sample.wgs $sample.wgs.bam
 ```
 
-For 500-base windows (and a coverage distribution):
-
-```
-mosdepth -d $sample.dist --by 500 $sample.wgs.bam > $sample.500.bed
-```
+`-n` means don't output per-base data, this will make `mosdepth`
+a bit faster as there is some cost to outputting that much text.
 
 ### Distribution only
 
-To get only the distribution value, without the depth file:
+To get only the distribution value, without the depth file or the per-base and using 3 threads:
 
 ```
-mosdepth -t 3 -d $sample.dist -b 100000 > /dev/null
+mosdepth -n -t 3 $sample $bam
 ```
 
-A large window size makes `mosdepth` do less work formatting numbers.
+Output will go to `$sample.mosdepth.dist.txt`
 
 ## Installation
 
@@ -101,23 +106,29 @@ and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/inst
 
 This is **useful for QC**.
 
-The `--distribution` option outputs a cumulative distribution indicating then
-proportion of genome bases (or the proportion of the `--by`) that were covered
-for at least a given coverage value.
+The `$prefix.mosdepth.dist.txt` file contains, a cumulative distribution indicating the
+proportion of bases (or the proportion of the `--by`) that were covered
+for at least a given coverage value. It does this for each chromosom, and for then
+whole genome.
 
-This will write a file to the requested path with values indicating the coverage
-threshold and the proportion of bases covered at that threshold.
+Each row will indicate:
+ + chromosome (or "genome")
+ + coverage level
+ + proportion of bases covered at that level
+
+The last value in each chromosome will be coverage level of 0 aligned with
+1.0 bases covered at that level.
 
 A python plotting script is provided in `scripts/plot-dist.py` that will make 
 plots like below. Use is `python scripts/plot-dist.py *.dist` and the output
-is `dist.png`.
+is `dist.html` with a plot for the full set along with one for each chromosome.
 
 Using something like that, we can plot the distribution from the entire genome.
 Below we show this for samples with ~60X coverage:
 
 ![WGS Example](https://user-images.githubusercontent.com/1739/29646192-2a2a6126-883f-11e7-91ab-049295eb3531.png "WGS Example")
 
-We can also run `mosdepth` on just the Y chromosome (--chrom Y) to verify that males and females
+We can also view the Y chromosome to verify that males and females
 track separately. Below, we that see female samples cluster along the axes while male samples have
 close to 30X coverage for almost 40% of the genome.
 
@@ -150,44 +161,10 @@ at any position, it is slower for small, 1-time regional queries. It is, however
 window-based or BED-based regions, because it first calculates the full chromosome coverage
 and then reports the coverage for each region in that chromosome. Another downside is it uses
 more memory than samtools. The amount of memory is approximately equal to 32-bits * longest chrom
-length, so for the 249MB chromosome 1, it will require 500MB of memory.
+length, so for the 249MB chromosome 1, it will require 1GB of memory.
 
 `mosdepth` is written in [nim](https://nim-lang.org/) and it uses our [htslib](https://github.com/samtools/htslib)
 via our nim wrapper [hts-nim](https://github.com/brentp/hts-nim/)
-
-## output
-
-When the `--by` argument is *not* specified, the output of `mosdepth`. The output looks like:
-
-```
-chr1	216	0
-chr1	232	1
-chr1	236	2
-chr1	255	1
-chr1	9991	0
-chr1	9992	1
-chr1	9993	2
-chr1	9994	6
-chr1	9995	5
-chr1	9996	6
-```
-
-Each line indicates the end of the previous coverage level and the start of the next.
-
-So the first line indicates that:
-
-+ the values on chr1 from 0 to 216 (in 0-based, half-open (BED) coordinates) have a depth of 0. 
-+ the values on chr1 from 216 to 232 have a depth of 1 
-+ 232..236 == 2
-+ 236..255 == 1
-+ 255..9991 == 0
-+ and so on ...
-
-This is more compact than BED, but it's simple to convert to BED as:
-
-```
-awk 'BEGIN{start=0;last="";OFS="\t"}{ if($1!=last){start=0} print $1,start,$2,$3;start=$2;last=$1}'
-```
 
 ## speed and memory comparison
 
@@ -212,8 +189,14 @@ under 9 minutes of user time with 3 threads.
 |  CRAM  |  samtools  |    1     | base   |    1.79       | 45:21    |  451   |
 |  BAM   |  bedtools  |    1     | base   |    5.31       | 2:14:44  |  1908  |
 
+
+Note that the threads to `mosdepth` (and samtools) are decompression threads. After
+about 4 threads, there is no benefit for additional threads:
+
+![mosdepth-scaling](https://user-images.githubusercontent.com/1739/31246294-256d1b7c-a9ca-11e7-8e28-6c4d07cba3f5.png)
+
+
 ### Accuracy
 
 We compared `samtools depth` with default arguments to `mosdepth` without overlap detection and discovered **no
 differences across the entire chromosome**.
-
