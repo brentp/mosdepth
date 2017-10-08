@@ -347,7 +347,8 @@ proc copy_and_zero(afrom: var seq[int32], ato: var seq[int32]) =
     afrom[i] = 0
 
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, args: Table[string, docopt.Value]) =
+# regions are beds or ints where ints means windows of a given size.
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, regions: seq[string], args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -357,11 +358,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     arr: coverage_t
     prefix: string = $(args["<prefix>"])
     skip_per_base = args["--no-per-base"]
-    window: uint32 = 0
-    bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
+    windows: seq[uint32]
+    bed_regions: seq[TableRef[string, seq[region_t]]] # = Table[string, seq[region_t]]
     fbase: BGZI
     #fbase: BGZ
-    fregion: BGZI
+    fregions: seq[BGZI]
     fh_dist:File
 
   var distribution = new_seq[int32](1000)
@@ -375,16 +376,22 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
-  if region != nil:
-    fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true)
+  for i, region in regions:
+    if i == 0:
+      fregions = new_seq[BGZI]()
+      bed_regions = new_seq[TableRef[string, seq[region_t]]](len(regions))
+      windows = new_seq[uint32](len(regions))
+
+    fregions.add(wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true))
+
     if region.isdigit():
-      window = uint32(S.parse_int(region))
+      windows[i] = uint32(S.parse_int(region))
     else:
-      bed_regions = bed_to_table(region)
+      bed_regions[i] = bed_to_table(region)
 
   for target in sub_targets:
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
-    if skip_per_base and bed_regions != nil and not bed_regions.contains(target.name):
+    if skip_per_base and not any(bed_regions proc (x: TableRef[string, seq[region_t]): bool = return (x == nil or x.contains(target.name)):
       continue
     rchrom = region_t(chrom: target.name)
     var tid = coverage(bam, arr, rchrom, mapq, eflag)
@@ -392,9 +399,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     arr.to_coverage()
 
     var starget = target.name & "\t"
-    if region != nil:
+    for i, region in regions:
       var line = new_string_of_cap(16384)
-      for r in region_gen(window, target, bed_regions):
+      for r in region_gen(windows[i], target, bed_regions[i]):
         var me = imean(arr, r.start, r.stop)
         var m = su.format_float(me, ffDecimal, precision=2)
 
@@ -402,10 +409,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
         else:
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
-        discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
+        discard fregions[i].write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
-        chrom_distribution.inc(arr, r.start, r.stop)
-    else:
+        if i == 0:
+          chrom_distribution.inc(arr, r.start, r.stop)
+      # need different distributions???
       chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
 
     # write the distribution for each chrom
