@@ -11,7 +11,8 @@ import times
 proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
 type
   pair = tuple[pos: int, value: int32]
-  depth_t = tuple[start: int, stop: int, value: int, tid: uint32]
+  depth_t = tuple[start: int, stop: int, value: int]
+  depth_s = tuple[start: int, stop: int, value: string]
   region_t = ref object
     chrom: string
     start: uint32
@@ -38,7 +39,7 @@ proc to_coverage(c: var coverage_t) =
 proc length(r: region_t): int =
   return int(r.stop - r.start)
 
-iterator gen_depths(arr: coverage_t, offset: int, istop: int, tid: uint32): depth_t =
+iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
@@ -62,7 +63,7 @@ iterator gen_depths(arr: coverage_t, offset: int, istop: int, tid: uint32): dept
       continue
 
     if last_depth != -1:
-      yield (last_i, i, last_depth, tid)
+      yield (last_i, i, last_depth)
 
     last_depth = depth
     last_i = i
@@ -70,14 +71,54 @@ iterator gen_depths(arr: coverage_t, offset: int, istop: int, tid: uint32): dept
     inc(i)
 
   if last_i < stop:
-    yield (last_i, len(arr)-1, last_depth, tid)
+    yield (last_i, len(arr)-1, last_depth)
 
   # this is horrible, but it works. we don't know
   # if we've already printed the record on not.
   elif  last_i != i:
-      yield (last_i - 1, i, last_depth, tid)
+      yield (last_i - 1, i, last_depth)
   else:
-      yield (last_i, i, last_depth, tid)
+      yield (last_i, i, last_depth)
+
+proc linear_search*(q:int, vals:seq[int], idx: ptr int) {.inline.} =
+  if q < vals[0] or q > vals[vals.high]:
+    idx[] = -1
+    return
+  for i, val in vals:
+    if val > q:
+      idx[] = i - 1
+      return
+    if val == q:
+      idx[] = i
+      return
+  idx[] = vals.high
+
+proc make_lookup(quants: seq[int]): seq[string] =
+  var L = new_seq[string](len(quants))
+  for i in 0..L.high:
+    var t = getEnv("MOSDEPTH_Q" & intToStr(i))
+    if t == "":
+      L[i] = intToStr(i)
+    else:
+      L[i] = t
+  return L
+
+iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s =
+  # like gen_depths but merges adjacent entries in same quantize bins.
+  if len(arr) > 0:
+    var lookup = make_lookup(quants)
+    var last_quantized, quantized: int
+    linear_search(arr[0], quants, last_quantized.addr)
+    var last_pos = 0
+    for pos, d in arr[0..<(arr.high)-1]:
+      linear_search(d, quants, quantized.addr)
+      if quantized == last_quantized: continue
+      if last_quantized != -1:
+        yield (last_pos, pos, lookup[last_quantized])
+      last_quantized = quantized
+      last_pos = pos
+    if last_quantized != -1 and last_pos < arr.high:
+      yield (last_pos, len(arr)-1, lookup[last_quantized])
 
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
@@ -346,6 +387,23 @@ proc copy_and_zero(afrom: var seq[int32], ato: var seq[int32]) =
     ato[i] += afrom[i]
     afrom[i] = 0
 
+proc get_quantize_args*(qa: string) : seq[int] =
+  if qa == "nil":
+    return nil
+  var a = qa
+  # if it starts with : we go prepend 0
+  if a[0] == ':':
+    a = "0" & a
+  # if it ends with ":" we make that bin include all numbers above it.
+  if a[a.high] == ':':
+    a = a & intToStr(high(int))
+  try:
+    var qs = map(a.split(':'), proc (s:string): int = return parse_int(s))
+    sort(qs, system.cmp[int])
+    return qs
+  except:
+    stderr.write_line("[mosdepth] invalid quantize string: '" & a & "'")
+    quit(2)
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
@@ -361,8 +419,10 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
     fbase: BGZI
     #fbase: BGZ
+    fquantize: BGZI
     fregion: BGZI
     fh_dist:File
+    quantize = get_quantize_args($args["--quantize"])
 
   var distribution = new_seq[int32](1000)
   var chrom_distribution = new_seq[int32](1000)
@@ -371,6 +431,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     # not call set_threads().
     fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1)
     #open(fbase, prefix & ".per-base.bed.gz", "w1")
+  if quantize != nil:
+    fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true, compression_level=1)
 
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
@@ -384,7 +446,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
   for target in sub_targets:
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
-    if skip_per_base and bed_regions != nil and not bed_regions.contains(target.name):
+    if skip_per_base and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
     var tid = coverage(bam, arr, rchrom, mapq, eflag)
@@ -413,19 +475,28 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     # then copy it to the genome distribution
     copy_and_zero(chrom_distribution, distribution)
 
-    if skip_per_base: continue
-    for p in gen_depths(arr, 0, 0, uint32(target.tid)):
-      discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
-      #discard fbase.write_line(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value))
+    if not skip_per_base:
+      for p in gen_depths(arr):
+        discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
+    if quantize != nil:
+      for p in gen_quantized(quantize, arr):
+        discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
 
   write_distribution("total", distribution, fh_dist)
   if bed_regions != nil:
     for chrom, regions in bed_regions:
       stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
+
   if fregion != nil:
     if close(fregion) != 0:
       stderr.write_line("[mosdepth] error writing region file\n")
       quit()
+
+  if fquantize != nil:
+    if close(fquantize) != 0:
+      stderr.write_line("[mosdepth] error writing quantize file\n")
+      quit()
+
   if fbase != nil:
     if close(fbase) != 0:
       stderr.write_line("[mosdepth] error writing per-base file\n")
@@ -455,6 +526,7 @@ Arguments:
   <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
+                          `{prefix}.quantized.bed.gz` (if --quantize is specified)
 
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
@@ -468,9 +540,10 @@ Common Options:
 
 Other options:
 
-  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
-  -Q --mapq <mapq>           mapping quality threshold [default: 0]
-  -h --help                  show help
+  -F --flag <FLAG>            exclude reads with any of the bits in FLAG set [default: 1796]
+  -q --quantize <segments>    write quantized output see docs for description.
+  -Q --mapq <mapq>            mapping quality threshold [default: 0]
+  -h --help                   show help
   """ % ["version", version])
 
   let args = docopt(doc, version = version)

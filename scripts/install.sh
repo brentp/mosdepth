@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo $(pwd)
+
 sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
      curl  libssl-dev libtool autoconf automake libcurl4-openssl-dev
 
@@ -23,7 +25,7 @@ else
   fi
 fi
 
-PATH=$PATH:$base/nim-$BRANCH/bin/:$PATH:$base/nimble/src
+export PATH=$PATH:$base/nim-$BRANCH/bin/:$PATH:$base/nimble/src
 cd $base
 echo $PATH
 
@@ -33,8 +35,13 @@ cd nimble
 nim c src/nimble
 src/nimble install -y
 
+set -x
 cd $base
 nimble refresh
+
+echo $(which nimble)
+echo $(pwd)
+
 
 if [ ! -x hts-nim ]; then
     cd $base

@@ -27,6 +27,7 @@ Arguments:
   <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
+                          `{prefix}.quantized.bed.gz` (if --quantize is specified)
 
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
@@ -38,9 +39,10 @@ Common Options:
   -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
-Other options:
+Advanced options:
 
   -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
+  -q --quantize <segments>    write quantized output see docs for description.
   -Q --mapq <mapq>           mapping quality threshold [default: 0]
   -h --help                  show help
 ```
@@ -96,7 +98,7 @@ Unless you want to install [nim](https://nim-lang.org), simply download the
 about "`libhts.so` not found", set `LD_LIBRARY_PATH` to the directory that 
 contains `libhts.so`. e.g.
 
-```LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h```
+`LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h`
 
 If you get the error `could not import: hts_check_EOF` you may need to 
 install a more recent version of htslib.
@@ -138,6 +140,34 @@ close to 30X coverage for almost 40% of the genome.
 
 See [this blog post](http://www.gettinggeneticsdone.com/2014/03/visualize-coverage-exome-targeted-ngs-bedtools.html) for
 more details.
+
+## quantize
+
+quantize allows splitting coverage into bins and merging adjacent regions that fall into the same bin even if they have
+different exact coverage values. This can dramatically reduce the size of the output compared to the per-base.
+
+It also allows outputting regions of low, high, and "callable" coverage as in [GATK's callable loci tool](https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_gatk_tools_walkers_coverage_CallableLoci.php).
+
+An example of quantize arguments:
+```
+--quantize 0:1:4:100:200: # ... arbitary number of quantize bins.
+```
+
+indicates bins of: 0, 1-3, 4-99, 100-200, 200-infinity
+
+The default for `mosdepth` is to output the integer index of the bin associated with each interval. So in the example here,
+a depth of 0 would be assigned to bin 0, a depth of 3 to bin 1, a depth of 5 to bin 2 and so-on.
+
+To change what is reported as the bin number, a user can set environment variables e.g.:
+
+```
+export MOSDEPTH_Q0=NO_COVERAGE
+export MOSDEPTH_Q1=LOW_COVERAGE
+export MOSDEPTH_Q2=CALLABLE
+export MOSDEPTH_Q3=HIGH_COVERAGE
+```
+
+In this case, the bin number is replaced by the text in the appropriate environment variable.
 
 ## how it works
 
