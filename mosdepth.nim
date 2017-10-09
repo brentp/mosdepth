@@ -515,7 +515,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.1.8"
+  let version = "mosdepth 0.1.9"
   let doc = format("""
   $version
 
