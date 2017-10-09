@@ -18,8 +18,6 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ```
 mosdepth
 
-**NOTE**: the usage below is for the development (coming) version of mosdepth which differs from the current release.
-
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
 Arguments:
