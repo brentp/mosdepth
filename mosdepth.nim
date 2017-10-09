@@ -104,6 +104,7 @@ proc make_lookup(quants: seq[int]): seq[string] =
   return L
 
 iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s =
+  # like gen_depths but merges adjacent entries in same quantize bins.
   if len(arr) > 0:
     var lookup = make_lookup(quants)
     var last_quantized, quantized: int

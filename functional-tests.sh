@@ -31,6 +31,23 @@ assert_exit_code 0
 assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
 assert_equal "MT	0	16569	0.00" "$(zcat t.regions.bed.gz)"
 
+unset MOSDEPTH_Q0
+unset MOSDEPTH_Q1
+unset MOSDEPTH_Q2
+rm -f t.quantized.bed.gz
+run quantest $exe -q 0:1:1000 t tests/ovl.bam
+assert_exit_code 0
+assert_equal "$(zcat t.quantized.bed.gz)" "MT	0	80	1
+MT	80	16569	0"
+
+
+export MOSDEPTH_Q0=AAA
+export MOSDEPTH_Q1=BBB
+rm -f t.quantized.bed.gz
+run quantest-named $exe -q 0:1:1000 t tests/ovl.bam
+assert_exit_code 0
+assert_equal "$(zcat t.quantized.bed.gz)" "MT	0	80	BBB
+MT	80	16569	AAA"
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0

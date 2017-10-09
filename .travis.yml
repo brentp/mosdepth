@@ -6,10 +6,13 @@ before_install:
   - export PATH="nim-$BRANCH/bin/nim/bin:${PATH:+:$PATH}"
   - export LD_LIBRARY_PATH=./htslib/
   - export PATH="nim-$BRANCH/bin${PATH:+:$PATH}"
+  - export PATH="$(pwd)/nimble/src:$PATH"
+
 install:
   - bash ./scripts/install.sh
 script:
-  - nim c -d:release --cc:$CC -r mosdepth.nim
+  - nimble test
+  - nim c -d:release --cc:$CC mosdepth.nim
   - ./mosdepth -h
   - bash functional-tests.sh
 cache:
