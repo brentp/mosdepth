@@ -37,8 +37,8 @@ unset MOSDEPTH_Q2
 rm -f t.quantized.bed.gz
 run quantest $exe -q 0:1:1000 t tests/ovl.bam
 assert_exit_code 0
-assert_equal "$(zcat t.quantized.bed.gz)" "MT	0	80	1
-MT	80	16569	0"
+assert_equal "$(zcat t.quantized.bed.gz)" "MT	0	80	1:1000
+MT	80	16569	0:1"
 
 
 export MOSDEPTH_Q0=AAA
