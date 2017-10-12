@@ -204,8 +204,24 @@ proc get_tid(tgts: seq[hts.Target], chrom: string): int =
     if t.name == chrom:
       return t.tid
 
+proc init(arr: var coverage_t, tlen:int) =
+
+  if arr == nil or len(arr) != int(tlen):
+    # must create a new array in some cases.
+    if arr == nil or len(arr) < int(tlen):
+      arr = new_seq[int32](tlen)
+    else:
+      # otherwise can re-use and zero
+      arr.set_len(int(tlen))
+      for i in 0..<len(arr):
+        arr[i] = 0
+
+
 proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
   # depth updates arr in-place and yields the tid for each chrom.
+  # returns -1 if the chrom is not found in the bam header
+  # returns -2 if the chrom was found in the header, but there was no data for it
+  # otherwise returns the tid.
   var
     targets = bam.hdr.targets
     tgt: hts.Target
@@ -213,26 +229,21 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     seen = newTable[string, Record]()
 
   var tid = if region != nil: get_tid(targets, region.chrom) else: -1
+  if tid == -1:
+    return -1
 
+  tgt = targets[tid]
+
+  var found = false
   for rec in bam.regions(region, tid, targets):
+    arr.init(int(tgt.length+1))
+    found = true
     if int(rec.qual) < mapq: continue
     if (rec.flag and eflag) != 0:
       continue
-    if tgt == nil or tgt.tid != rec.b.core.tid:
-        if tgt != nil:
-          raise newException(OSError, "expected only a single chromosome per query")
-        tgt = targets[rec.b.core.tid]
-        if arr == nil or len(arr) != int(tgt.length+1):
-          # must create a new array in some cases.
-          if arr == nil or len(arr) < int(tgt.length+1):
-            arr = new_seq[int32](tgt.length+1)
-          else:
-            # otherwise can re-use and zero
-            arr.set_len(int(tgt.length+1))
-            for i in 0..<len(arr):
-              arr[i] = 0
+    if tgt.tid != rec.b.core.tid:
+        raise newException(OSError, "expected only a single chromosome per query")
 
-        seen.clear()
     # rec:   --------------
     # mate:             ------------
     # handle overlapping mate pairs.
@@ -282,11 +293,9 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
               last_pos = p.pos
             assert pair_depth == 0, $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
     inc_coverage(rec.cigar, rec.start, arr)
-
-  if tgt != nil:
-    return tgt.tid
-  else:
-    return -1
+  if not found:
+    return -2
+  return tgt.tid
 
 proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
@@ -448,19 +457,23 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
       bed_regions = bed_to_table(region)
 
   for target in sub_targets:
+    chrom_distribution.set_len(1000)
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
     if skip_per_base and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
     var tid = coverage(bam, arr, rchrom, mapq, eflag)
-    if tid == -1: continue
-    arr.to_coverage()
+    if tid == -1: continue # -1 means that chrom is not even in the bam
+    if tid != -2: # -2 means there were no reads in the bam
+      arr.to_coverage()
 
     var starget = target.name & "\t"
     if region != nil:
       var line = new_string_of_cap(16384)
+      var me = 0'f64
       for r in region_gen(window, target, bed_regions):
-        var me = imean(arr, r.start, r.stop)
+        if tid != -2:
+          me = imean(arr, r.start, r.stop)
         var m = su.format_float(me, ffDecimal, precision=2)
 
         if r.name == nil:
@@ -471,20 +484,32 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
         line = line[0..<0]
         chrom_distribution.inc(arr, r.start, r.stop)
     else:
-      chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
+      if tid != -2:
+        chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
 
     # write the distribution for each chrom
+    if tid == -2:
+      chrom_distribution.set_len(1)
     write_distribution(target.name, chrom_distribution, fh_dist)
     # then copy it to the genome distribution
     copy_and_zero(chrom_distribution, distribution)
 
     if not skip_per_base:
-      for p in gen_depths(arr):
-        discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
+      if tid == -2:
+        discard fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length))
+      else:
+        for p in gen_depths(arr):
+          discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
     if quantize != nil:
-      for p in gen_quantized(quantize, arr):
-        discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
+      if tid == -2 and quantize[0] == 0:
+        # TODO: do something more efficient than this...
+        var lookup = make_lookup(quantize)
+        discard fquantize.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t" & lookup[0], target.name, 0, int(target.length))
+      else:
+        for p in gen_quantized(quantize, arr):
+            discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
 
+  # echo dist
   write_distribution("total", distribution, fh_dist)
   if bed_regions != nil:
     for chrom, regions in bed_regions:
