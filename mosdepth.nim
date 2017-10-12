@@ -93,12 +93,15 @@ proc linear_search*(q:int, vals:seq[int], idx: ptr int) {.inline.} =
       return
   idx[] = vals.high
 
-proc make_lookup(quants: seq[int]): seq[string] =
-  var L = new_seq[string](len(quants))
+proc make_lookup*(quants: seq[int]): seq[string] =
+  var L = new_seq[string](len(quants)-1)
   for i in 0..L.high:
     var t = getEnv("MOSDEPTH_Q" & intToStr(i))
     if t == "":
-      L[i] = intToStr(i)
+      if quants[i+1] == high(int):
+        L[i] = intToStr(quants[i]) & ":inf"
+      else:
+        L[i] = intToStr(quants[i]) & ":" & intToStr(quants[i+1])
     else:
       L[i] = t
   return L
@@ -515,7 +518,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.1.9"
+  let version = "mosdepth 0.2.0"
   let doc = format("""
   $version
 

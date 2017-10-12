@@ -151,10 +151,10 @@ An example of quantize arguments:
 --quantize 0:1:4:100:200: # ... arbitary number of quantize bins.
 ```
 
-indicates bins of: 0, 1-3, 4-99, 100-200, 200-infinity
+indicates bins of: 0:1, 1:4, 4:100, 100:200, 200:infinity
+where the upper endpoint is non-inclusive.
 
-The default for `mosdepth` is to output the integer index of the bin associated with each interval. So in the example here,
-a depth of 0 would be assigned to bin 0, a depth of 3 to bin 1, a depth of 5 to bin 2 and so-on.
+The default for `mosdepth` is to output labels as above (0:1, 1:4, 4:100... etc.)
 
 To change what is reported as the bin number, a user can set environment variables e.g.:
 
@@ -165,7 +165,7 @@ export MOSDEPTH_Q2=CALLABLE
 export MOSDEPTH_Q3=HIGH_COVERAGE
 ```
 
-In this case, the bin number is replaced by the text in the appropriate environment variable.
+In this case, the bin label is replaced by the text in the appropriate environment variable.
 
 ## how it works
 

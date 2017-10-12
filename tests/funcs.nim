@@ -37,3 +37,25 @@ suite "mosdepth-suite":
     linear_search(99999, bins, idx.addr)
     check idx == 1
 
+  test "lookup":
+    var bins = @[10, 22, 44, 99]
+    var m = make_lookup(bins)
+    check m[0] == "10:22"
+    check m[1] == "22:44"
+    check m[2] == "44:99"
+    check m.len == 3
+
+    bins = @[0, 10]
+    m = make_lookup(bins)
+    check m[0] == "0:10"
+    check m.len == 1
+
+    bins = get_quantize_args("0:1:4:")
+    m = make_lookup(bins)
+
+    check m.len == 3
+    check m[2] == "4:inf"
+
+
+
+
