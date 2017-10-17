@@ -56,6 +56,14 @@ suite "mosdepth-suite":
     check m.len == 3
     check m[2] == "4:inf"
 
+  test "threshold-args":
+
+    var ts = threshold_args("1,2,3")
+    check ts[0] == 1
+    check ts[1] == 2
+    check ts[2] == 3
+    check ts.len == 3
+
 
 
 

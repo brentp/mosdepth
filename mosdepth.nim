@@ -417,7 +417,43 @@ proc get_quantize_args*(qa: string) : seq[int] =
     stderr.write_line("[mosdepth] invalid quantize string: '" & a & "'")
     quit(2)
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, args: Table[string, docopt.Value]) =
+
+proc write_thresholds(fh:BGZI, tid:int, arr:coverage_t, thresholds:seq[int], region: region_t) =
+  # write the number of bases in each region that are >= each threshold.
+  if thresholds == nil: return
+  var
+    line = new_string_of_cap(100)
+    start = int(region.start)
+    stop = int(region.stop)
+  line.add(region.chrom & "\t")
+  line.add(intToStr(start) & "\t")
+  line.add(intToStr(stop))
+  if region.name != nil:
+    line.add("\t" & region.name)
+  else:
+    line.add("\tunknown")
+
+  if tid == -2:
+    for i in thresholds:
+      line.add("\t0")
+    discard fh.write_interval(line, region.chrom, start, stop)
+    return
+
+  var counts = new_seq[int](len(thresholds))
+
+  # iterate over the region and count bases >= request cutoffs.
+  for v in arr[start..<stop]:
+    for i, t in thresholds:
+      if v >= t:
+        counts[i] += 1
+      # else: break # if we know they are sorted we can break
+
+  for count in counts:
+    line.add("\t" & intToStr(count))
+  discard fh.write_interval(line, region.chrom, start, stop)
+
+
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, thresholds: seq[int], args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -432,6 +468,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     fbase: BGZI
     #fbase: BGZ
     fquantize: BGZI
+    fthresholds: BGZI
     fregion: BGZI
     fh_dist:File
     quantize = get_quantize_args($args["--quantize"])
@@ -446,6 +483,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   if quantize != nil:
     fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true, compression_level=1)
 
+  if thresholds != nil:
+    fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1)
+
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
@@ -459,7 +499,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   for target in sub_targets:
     chrom_distribution.set_len(1000)
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
-    if skip_per_base and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
+    if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
     var tid = coverage(bam, arr, rchrom, mapq, eflag)
@@ -483,6 +523,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
         chrom_distribution.inc(arr, r.start, r.stop)
+        write_thresholds(fthresholds, tid, arr, thresholds, r)
     else:
       if tid != -2:
         chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
@@ -511,24 +552,29 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
   # echo dist
   write_distribution("total", distribution, fh_dist)
-  if bed_regions != nil:
+  if bed_regions != nil and chrom == nil:
     for chrom, regions in bed_regions:
       stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
 
   if fregion != nil:
     if close(fregion) != 0:
       stderr.write_line("[mosdepth] error writing region file\n")
-      quit()
+      quit(1)
 
   if fquantize != nil:
     if close(fquantize) != 0:
       stderr.write_line("[mosdepth] error writing quantize file\n")
-      quit()
+      quit(1)
+
+  if fthresholds != nil:
+    if close(fthresholds) != 0:
+      stderr.write_line("[mosdepth] error writing thresholds file\n")
+      quit(1)
 
   if fbase != nil:
     if close(fbase) != 0:
       stderr.write_line("[mosdepth] error writing per-base file\n")
-      quit()
+      quit(1)
   close(fh_dist)
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
@@ -538,6 +584,11 @@ proc check_chrom(r: region_t, targets: seq[Target]) =
       return
   stderr.write_line "[mosdepth] chromosome ", r.chrom, " not found"
   quit(1)
+
+proc threshold_args*(ts: string): seq[int] =
+  if ts == "nil":
+    return nil
+  return map(ts.split(','), proc (s:string): int = return parse_int(s))
 
 when(isMainModule):
   when not defined(release) and not defined(lto):
@@ -564,7 +615,8 @@ Common Options:
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -b --by <bed|window>       optional BED file or (integer) window-sizes.
-  -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
+  -n --no-per-base           dont output per-base depth. skipping this output will speed execution
+                             substantially. prefer quantized or thresholded values if possible. 
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
 Other options:
@@ -572,12 +624,18 @@ Other options:
   -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold [default: 0]
+  -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
+                                least threshold bases. Specify multiple integer values separated
+                                by ','.
   -h --help                     show help
   """ % ["version", version])
 
   let args = docopt(doc, version = version)
   let mapq = S.parse_int($args["--mapq"])
-  var region: string
+  var
+    region: string
+    thresholds: seq[int] = threshold_args($args["--thresholds"])
+
   if $args["--by"] != "nil":
     region = $args["--by"]
   GC_disableMarkAndSweep()
@@ -602,4 +660,4 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, region, args)
+  main(bam, chrom, mapq, eflag, region, thresholds, args)

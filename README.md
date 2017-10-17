@@ -16,7 +16,7 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ## usage
 
 ```
-mosdepth
+mosdepth 0.2.0
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
@@ -26,23 +26,29 @@ Arguments:
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
                           `{prefix}.quantized.bed.gz` (if --quantize is specified)
+                          `{prefix}.thresholds.bed.gz` (if --thresholds is specified)
 
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
 Common Options:
   
-  -t --threads <threads>     number of BAM decompression threads [default: 0]
+  -t --threads <threads>     number of BAM decompression threads. (use 4 or fewer) [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -b --by <bed|window>       optional BED file or (integer) window-sizes.
-  -n --no-per-base           dont output per-base depth (skipping this output will speed execution).
+  -n --no-per-base           dont output per-base depth. skipping this output will speed execution
+                             substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files.
 
-Advanced options:
+Other options:
 
-  -F --flag <FLAG>           exclude reads with any of the bits in FLAG set [default: 1796]
-  -q --quantize <segments>    write quantized output see docs for description.
-  -Q --mapq <mapq>           mapping quality threshold [default: 0]
-  -h --help                  show help
+  -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
+  -q --quantize <segments>      write quantized output see docs for description.
+  -Q --mapq <mapq>              mapping quality threshold [default: 0]
+  -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
+                                least threshold bases. Specify multiple integer values separated
+                                by ','.
+  -h --help                     show help
+
 ```
 
 See the section below for more info on distribution.
@@ -139,6 +145,30 @@ close to 30X coverage for almost 40% of the genome.
 See [this blog post](http://www.gettinggeneticsdone.com/2014/03/visualize-coverage-exome-targeted-ngs-bedtools.html) for
 more details.
 
+## thresholds
+
+given a set of regions to the `--by` argment, `mosdepth` can report the number of bases in each region that
+are covered at or above each threshold value given to `--tresholds`. e.g:
+```
+mosdepth --by exons.bed --thresholds 1,10,20,30 $prefix $bam
+```
+
+will create a file $prefix.thresholds.bed.gz with an extra column for each requested threshold.
+An example output for the above command (assuming exons.bed had a 4th column with gene names) would look like:
+
+```
+1	11869	12227	ENSE00002234944	358	157	110	0
+1	11874	12227	ENSE00002269724	353	127	10	0
+1	12010	12057	ENSE00001948541	47	8	0	0
+1	12613	12721	ENSE00003582793	108	0	0	0
+```
+
+If there is no name (4th) column in the bed file send to `--by` then that column will contain "unknown"
+in the output.
+
+This is extremely efficient. In our tests, excluding per-base output (`-n`) and using this argument with
+111K exons and 12 values to `--thresholds` increases the run-time by < 5%.
+
 ## quantize
 
 quantize allows splitting coverage into bins and merging adjacent regions that fall into the same bin even if they have
@@ -166,6 +196,10 @@ export MOSDEPTH_Q3=HIGH_COVERAGE
 ```
 
 In this case, the bin label is replaced by the text in the appropriate environment variable.
+
+This is very efficient. In our tests, excluding per-base output (`-n`) and using this argument with
+9 bins to `--quantize` increases the run-time by ~ 20%. In contrast, the difference in time with
+and without `-n` can be 2-fold.
 
 ## how it works
 
