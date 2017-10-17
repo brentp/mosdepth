@@ -45,6 +45,18 @@ assert_equal "$(zgrep ^MT t.quantized.bed.gz)" "MT	0	80	1:1000
 MT	80	16569	0:1"
 assert_equal "$(zgrep -w ^1 t.quantized.bed.gz)" "1	0	249250621	0:1"
 
+
+rm -f t.thresholds.bed.gz*
+run threshold_test $exe --by 100 -T 0,1,2,3,4,5 -c MT t tests/ovl.bam
+assert_equal "$(zcat t.thresholds.bed.gz | head -1)" "MT	0	100	unknown	100	80	0	0	0	0"
+assert_equal "0" "$(zcat t.thresholds.bed.gz | cut -f 7 | uniq)"
+assert_exit_code 0
+
+rm -f t.thresholds.bed.gz*
+run threshold_test_by $exe --by tests/track.bed -T 0,1,2 -c MT t tests/ovl.bam
+assert_equal "$(zcat t.thresholds.bed.gz | head -1)" "MT	2	80	aregion	78	78	0"
+assert_exit_code 0
+
 export MOSDEPTH_Q0=AAA
 export MOSDEPTH_Q1=BBB
 rm -f t.quantized.bed.gz
@@ -55,9 +67,9 @@ MT	80	16569	AAA"
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal "$(zcat t.regions.bed.gz)" "MT	2	80	1.00"
+assert_equal "$(zcat t.regions.bed.gz)" "MT	2	80	aregion	1.00"
 
-run track_header $exe --by tests/bad.bed t tests/ovl.bam
+run track_header_by $exe --by tests/bad.bed t tests/ovl.bam
 assert_exit_code 1
 assert_in_stderr "skipping bad bed line:MT	2"
 assert_in_stderr "invalid integer: asdf"
