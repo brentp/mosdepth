@@ -451,6 +451,11 @@ proc write_thresholds(fh:BGZI, tid:int, arr:coverage_t, thresholds:seq[int], reg
     line.add("\t" & intToStr(count))
   discard fh.write_interval(line, region.chrom, start, stop)
 
+proc write_header(fh:BGZI, thresholds: seq[int]) =
+  discard fh.bgz.write("#chrom	start	end	region")
+  for threshold in thresholds:
+    discard fh.bgz.write("\t" & intToStr(threshold) & "X")
+  discard fh.bgz.write("\n")
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, thresholds: seq[int], args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
@@ -484,6 +489,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
 
   if thresholds != nil:
     fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1)
+    fthresholds.write_header(thresholds)
 
   if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")

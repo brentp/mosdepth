@@ -156,9 +156,10 @@ mosdepth --by exons.bed --thresholds 1,10,20,30 $prefix $bam
 ```
 
 will create a file $prefix.thresholds.bed.gz with an extra column for each requested threshold.
-An example output for the above command (assuming exons.bed had a 4th column with gene names) would look like:
+An example output for the above command (assuming exons.bed had a 4th column with gene names) would look like (including the header):
 
 ```
+#chrom	start	end	region	1X	10X	20X	30X
 1	11869	12227	ENSE00002234944	358	157	110	0
 1	11874	12227	ENSE00002269724	353	127	10	0
 1	12010	12057	ENSE00001948541	47	8	0	0
