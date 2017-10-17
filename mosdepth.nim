@@ -166,8 +166,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
       for r in bam.queryi(tid, int(region.start), int(stop)):
         yield r
     else:
-      for r in bam.query(region.chrom, int(region.start), int(stop)):
-        yield r
+      stderr.write_line("[mosdepth]", region.chrom, " not found")
 
 proc bed_line_to_region(line: string): region_t =
    var

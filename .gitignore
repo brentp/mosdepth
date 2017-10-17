@@ -4,3 +4,5 @@ nimcache
 *.bai
 *.crai
 profile_results.txt
+t.*.bed.gz
+t.*.bed.gz.csi
