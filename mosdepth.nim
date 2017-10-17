@@ -555,6 +555,7 @@ Arguments:
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
                           `{prefix}.quantized.bed.gz` (if --quantize is specified)
+                          `{prefix}.thresholds.bed.gz` (if --thresholds is specified)
 
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
@@ -568,10 +569,10 @@ Common Options:
 
 Other options:
 
-  -F --flag <FLAG>            exclude reads with any of the bits in FLAG set [default: 1796]
-  -q --quantize <segments>    write quantized output see docs for description.
-  -Q --mapq <mapq>            mapping quality threshold [default: 0]
-  -h --help                   show help
+  -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
+  -q --quantize <segments>      write quantized output see docs for description.
+  -Q --mapq <mapq>              mapping quality threshold [default: 0]
+  -h --help                     show help
   """ % ["version", version])
 
   let args = docopt(doc, version = version)
@@ -597,8 +598,7 @@ Other options:
 
   discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
                          SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
-                         SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN,
-                         SamField.SAM_QUAL, SamField.SAM_AUX)
+                         SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN)
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
