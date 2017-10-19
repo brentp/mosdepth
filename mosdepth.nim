@@ -595,11 +595,20 @@ proc threshold_args*(ts: string): seq[int] =
     return nil
   return map(ts.split(','), proc (s:string): int = return parse_int(s))
 
+
+proc check_cram_has_ref(cram_path: string, fasta:string) =
+  if fasta != "" and exists_file(fasta):
+    return
+  if cram_path.ends_with(".cram"):
+    stderr.write_line("[mosdepth] ERROR: specify a reference file (or set REF_PATH env var) for decoding CRAM")
+    quit(1)
+
 when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
   let version = "mosdepth 0.2.0"
+  let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version
 
@@ -622,7 +631,7 @@ Common Options:
   -b --by <bed|window>       optional BED file or (integer) window-sizes.
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible. 
-  -f --fasta <fasta>         fasta file for use with CRAM files.
+  -f --fasta <fasta>         fasta file for use with CRAM files [default: $env_fasta].
 
 Other options:
 
@@ -633,7 +642,7 @@ Other options:
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
   -h --help                     show help
-  """ % ["version", version])
+  """ % ["version", version, "env_fasta", env_fasta])
 
   let args = docopt(doc, version = version)
   let mapq = S.parse_int($args["--mapq"])
@@ -654,6 +663,7 @@ Other options:
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
     bam:Bam
+  check_cram_has_ref($args["<BAM-or-CRAM>"], $args["--fasta"])
   open(bam, $args["<BAM-or-CRAM>"], threads=threads, index=true, fai=fasta)
   if bam.idx == nil:
     stderr.write_line("[mosdepth] error alignment file must be indexed")

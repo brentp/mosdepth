@@ -16,6 +16,10 @@ exe=./mosdepth
 bam=/data/human/NA12878.subset.bam
 
 
+unset REF_PATH
+run cram_no_ref $exe xx tests/tt.cram
+assert_exit_code 1
+
 run overlapM $exe t tests/ovl.bam
 assert_exit_code 0
 assert_equal "$(zgrep ^MT t.per-base.bed.gz)" "MT	0	80	1
