@@ -85,6 +85,26 @@ mosdepth -n --by 500 sample.wgs $sample.wgs.bam
 `-n` means don't output per-base data, this will make `mosdepth`
 a bit faster as there is some cost to outputting that much text.
 
+### Callable regions example
+
+To create a set of "callable" regions as in [GATK's callable loci tool](https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_gatk_tools_walkers_coverage_CallableLoci.php):
+
+```
+# by setting these ENV vars, we can control the output labels (4th column)
+export MOSDEPTH_Q0=NO_COVERAGE   # 0 -- defined by the arguments to --quantize
+export MOSDEPTH_Q1=LOW_COVERAGE  # 1..4
+export MOSDEPTH_Q2=CALLABLE      # 5..149
+export MOSDEPTH_Q3=HIGH_COVERAGE # 150 ...
+mosdepth -n --quantize 0:1:5:150: $sample.quantized $sample.wgs.bam
+```
+
+For this case. A regions with depth of 0 are labelled as "NO_COVERAGE", those with
+coverage of 1,2,3,4 are labelled as "LOW_COVERAGE" and so on.
+
+The result is a BED file where adjacent bases with depths that fall into the same
+bin are merged into a single region with the 4th column indicating the label.
+
+
 ### Distribution only
 
 To get only the distribution value, without the depth file or the per-base and using 3 threads:
