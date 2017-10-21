@@ -12,9 +12,9 @@ install:
   - bash ./scripts/install.sh
 script:
   - nimble test
+  - bash functional-tests.sh
   - nim c -d:release --cc:$CC mosdepth.nim
   - ./mosdepth -h
-  - bash functional-tests.sh
 cache:
   directories:
     - nim-master

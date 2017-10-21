@@ -106,17 +106,18 @@ proc make_lookup*(quants: seq[int]): seq[string] =
       L[i] = t
   return L
 
-iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s =
+iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s {.inline.} =
   # like gen_depths but merges adjacent entries in same quantize bins.
   if len(arr) > 0:
     var lookup = make_lookup(quants)
     var last_quantized, quantized: int
     linear_search(arr[0], quants, last_quantized.addr)
     var last_pos = 0
-    for pos, d in arr[0..<(arr.high)-1]:
+    for pos in 0..<(arr.high-1):
+      let d = arr[pos]
       linear_search(d, quants, quantized.addr)
       if quantized == last_quantized: continue
-      if last_quantized != -1:
+      if last_quantized != -1 and last_quantized < len(lookup):
         yield (last_pos, pos, lookup[last_quantized])
       last_quantized = quantized
       last_pos = pos
