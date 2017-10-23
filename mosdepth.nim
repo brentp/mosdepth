@@ -113,6 +113,7 @@ iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s {.inline.} =
     var last_quantized, quantized: int
     linear_search(arr[0], quants, last_quantized.addr)
     var last_pos = 0
+    # slicing into the array does a copy.
     for pos in 0..<(arr.high-1):
       let d = arr[pos]
       linear_search(d, quants, quantized.addr)
@@ -280,7 +281,6 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
             alg.sort(ses, pair_sort)
             var pair_depth = 0
             var last_pos = 0
-            #if len(ses) > 4: stderr.write_line ses
             for p in ses:
               assert pair_depth <= 2
               # if we are at pair_depth 2, there is overlap and when the incoming
@@ -343,9 +343,9 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
 
 const MAX_COVERAGE = int32(400000)
 
-proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
+proc inc(d: var seq[int64], coverage: coverage_t, start:uint32, stop:uint32) =
   var v:int32
-  var L = int32(len(d)-1)
+  var L = int32(d.high)
   if int(start) >= len(coverage):
     stderr.write_line("[mosdepth] warning requested interval outside of chromosome range:", start, "..", stop)
     return
@@ -359,13 +359,21 @@ proc inc(d: var seq[int32], coverage: coverage_t, start:uint32, stop:uint32) =
       v = MAX_COVERAGE - 10
     if v >= L:
       d.set_len(v + 10)
-      L = int32(len(d)-1)
+      for i in (L+1)..d.high:
+        d[i] = 0
+      L = int32(d.high)
     if v < 0: continue
     inc(d[v])
 
-proc write_distribution(chrom: string, d: var seq[int32], fh:File) =
+proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   var sum: int64
-  for v in d: sum += int64(v)
+  for i, v in d:
+    if v < 0:
+      stderr.write_line "XXXXXXXXXXXXXXXXX < 0:", v, " @ ", i, " for chrom:",chrom
+      stderr.write_line d[0..10]
+      quit(2)
+    sum += int64(v)
+
   if sum < 1: return
   var cum: float64 = 0
   # reverse and then cumsum so that e.g. a value of 1 is the proportion of
@@ -388,16 +396,14 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
   for t in targets:
     if t.name == r.chrom:
       result[0] = t
-      return result
 
-# copy the chromosome array into the genome-wide and then zero it out.
-proc copy_and_zero(afrom: var seq[int32], ato: var seq[int32]) =
+# copy the chromosome array into the genome-wide
+proc sum_into(afrom: seq[int64], ato: var seq[int64]) =
   if len(afrom) > len(ato):
     ato.set_len(afrom.len)
 
-  for i in 0..<afrom.len:
+  for i in 0..afrom.high:
     ato[i] += afrom[i]
-    afrom[i] = 0
 
 proc get_quantize_args*(qa: string) : seq[int] =
   if qa == "nil":
@@ -478,8 +484,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     fh_dist:File
     quantize = get_quantize_args($args["--quantize"])
 
-  var distribution = new_seq[int32](1000)
-  var chrom_distribution = new_seq[int32](1000)
+  var distribution = new_seq[int64](1000)
+  var chrom_distribution: seq[int64]
   if not skip_per_base:
     # can't use set-threads when indexing on the fly so this must
     # not call set_threads().
@@ -503,7 +509,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
       bed_regions = bed_to_table(region)
 
   for target in sub_targets:
-    chrom_distribution.set_len(1000)
+    chrom_distribution = new_seq[int64](1000)
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
     if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
@@ -535,11 +541,10 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
         chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
 
     # write the distribution for each chrom
-    if tid == -2:
-      chrom_distribution.set_len(1)
     write_distribution(target.name, chrom_distribution, fh_dist)
     # then copy it to the genome distribution
-    copy_and_zero(chrom_distribution, distribution)
+    if tid >= 0:
+      sum_into(chrom_distribution, distribution)
 
     if not skip_per_base:
       if tid == -2:
@@ -549,14 +554,12 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
           discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
     if quantize != nil:
       if tid == -2 and quantize[0] == 0:
-        # TODO: do something more efficient than this...
         var lookup = make_lookup(quantize)
         discard fquantize.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t" & lookup[0], target.name, 0, int(target.length))
       else:
         for p in gen_quantized(quantize, arr):
             discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
 
-  # echo dist
   write_distribution("total", distribution, fh_dist)
   if bed_regions != nil and chrom == nil:
     for chrom, regions in bed_regions:
