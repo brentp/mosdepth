@@ -8,7 +8,6 @@ import os
 import docopt
 import times
 
-proc setvbuf(stream: File, buf: cstring, buftype: int, size: int32): int {.importc: "setvbuf", header:"<stdio.h>".}
 type
   pair = tuple[pos: int, value: int32]
   depth_t = tuple[start: int, stop: int, value: int]
@@ -367,11 +366,7 @@ proc inc(d: var seq[int64], coverage: coverage_t, start:uint32, stop:uint32) =
 
 proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   var sum: int64
-  for i, v in d:
-    if v < 0:
-      stderr.write_line "XXXXXXXXXXXXXXXXX < 0:", v, " @ ", i, " for chrom:",chrom
-      stderr.write_line d[0..10]
-      quit(2)
+  for v in d:
     sum += int64(v)
 
   if sum < 1: return
@@ -657,7 +652,6 @@ Other options:
   if $args["--by"] != "nil":
     region = $args["--by"]
   GC_disableMarkAndSweep()
-  discard setvbuf(stdout, nil, 0, 16384)
   var fasta: cstring = nil
   if $args["--fasta"] != "nil":
     fasta = cstring($args["--fasta"])

@@ -1,5 +1,5 @@
-0.2.0 (dev)
-===========
+0.2.0
+=====
 + **2X speed improvement for CRAM** by not decoding unused base-qualities.
 + add new `--thresholds` argument. See README for usage. thresholds and quantization are highly recommended over
 + when using quantize, labels now indicate the range of depths encompassed by that region.
