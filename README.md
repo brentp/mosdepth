@@ -4,6 +4,8 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing
 
 [![Build Status](https://travis-ci.org/brentp/mosdepth.svg?branch=master)](https://travis-ci.org/brentp/mosdepth)
 
+[![citation](https://img.shields.io/badge/cite-open%20access-orange.svg)](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
+
 `mosdepth` can output:
 
 + per-base depth about 2x as fast `samtools depth`--about 25 minutes of CPU time for a 30X genome.
@@ -52,6 +54,8 @@ Other options:
   -h --help                     show help
 
 ```
+If you use mosdepth please cite [the publication in bioinformatics](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
+
 
 See the section below for more info on distribution.
 
