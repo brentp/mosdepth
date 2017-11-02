@@ -136,6 +136,8 @@ install a more recent version of htslib.
 If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
 and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
 
+If you use archlinux, you can [install as a package](https://aur.archlinux.org/packages/mosdepth/)
+
 ## distribution output
 
 This is **useful for QC**.
