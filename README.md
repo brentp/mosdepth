@@ -1,4 +1,6 @@
 fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing**.
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
+
 
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
@@ -120,6 +122,8 @@ mosdepth -n -t 3 $sample $bam
 Output will go to `$sample.mosdepth.dist.txt`
 
 ## Installation
+
+The simplest way is to [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
 
 Unless you want to install [nim](https://nim-lang.org), simply download the
 [binary from the releases](https://github.com/brentp/mosdepth/releases).
