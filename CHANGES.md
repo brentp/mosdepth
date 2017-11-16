@@ -1,3 +1,7 @@
+0.2.1
+=====
++ allow unsorted bed as input to --by
+
 0.2.0
 =====
 + **2X speed improvement for CRAM** by not decoding unused base-qualities.

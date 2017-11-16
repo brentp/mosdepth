@@ -129,7 +129,7 @@ proc pair_sort(a, b: pair): int =
 
 iterator gen_start_ends(c: Cigar, ipos: int): pair =
   # generate start, end pairs given a cigar string and a position offset.
-  if c.len == 1 and c[0].op == CigarOp(match):
+  if c.len == 1 and c[0].op == CigarOp.match:
     yield (ipos, int32(1))
     yield (ipos + c[0].len, int32(-1))
   else:
@@ -312,6 +312,10 @@ proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
     if v == nil: continue
     discard bed_regions.hasKeyOrPut(v.chrom, new_seq[region_t]())
     bed_regions[v.chrom].add(v)
+
+  # since it is read into mem, can also well sort.
+  for chrom, ivs in bed_regions.mpairs:
+      sort(ivs, proc (a, b: region_t): int = int(a.start) - int(b.start))
 
   hts.free(kstr.s)
   return bed_regions
@@ -624,12 +628,12 @@ Arguments:
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
 Common Options:
-  
+
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -b --by <bed|window>       optional BED file or (integer) window-sizes.
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
-                             substantially. prefer quantized or thresholded values if possible. 
+                             substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files [default: $env_fasta].
 
 Other options:
