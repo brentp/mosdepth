@@ -5,6 +5,7 @@ import algorithm as alg
 import sequtils as sequtils
 import strutils as su
 import os
+import lapper
 import docopt
 import times
 
@@ -14,9 +15,10 @@ type
   depth_s = tuple[start: int, stop: int, value: string]
   region_t = ref object
     chrom: string
-    start: uint32
-    stop: uint32
+    start: int
+    stop: int
     name: string
+    count: int
 
   coverage_t = seq[int32]
 
@@ -28,6 +30,11 @@ proc `$`(r: region_t): string =
   else:
     return format("$1:$2", r.chrom, r.start + 1)
 
+proc inc_count(r:region_t) = inc(r.count)
+
+proc start(r: region_t): int {.inline.} = return r.start
+proc stop(r: region_t): int {.inline.} = return r.stop
+
 proc to_coverage(c: var coverage_t) =
   # to_coverage converts from an array of start/end inc/decs to actual coverage.
   var d = int32(0)
@@ -36,7 +43,7 @@ proc to_coverage(c: var coverage_t) =
     c[i] = d
 
 proc length(r: region_t): int =
-  return int(r.stop - r.start)
+  return r.stop - r.start
 
 iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # given `arr` with values in each index indicating the number of reads
@@ -44,7 +51,6 @@ iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
   var
     last_depth = -1
-    depth = 0
     i = 0
     last_i = 0
     stop: int
@@ -163,8 +169,8 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
     var stop = region.stop
     if tid != -1:
       if stop == 0:
-        stop = targets[tid].length
-      for r in bam.queryi(tid, int(region.start), int(stop)):
+        stop = targets[tid].length.int
+      for r in bam.queryi(tid, region.start, stop):
         yield r
     else:
       stderr.write_line("[mosdepth]", region.chrom, " not found")
@@ -179,7 +185,7 @@ proc bed_line_to_region(line: string): region_t =
    var
      s = S.parse_int(cse[1])
      e = S.parse_int(cse[2])
-     reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
+     reg = region_t(chrom: cse[0], start: s, stop: e, count:0)
    if len(cse) > 3:
      reg.name = cse[3]
    return reg
@@ -191,9 +197,9 @@ proc region_line_to_region(region: string): region_t =
   var r = region_t()
   for w in region.split({':', '-'}):
     if i == 1:
-      r.start = uint32(S.parse_int(w)) - 1
+      r.start = S.parse_int(w) - 1
     elif i == 2:
-      r.stop = uint32(S.parse_int(w))
+      r.stop = S.parse_int(w)
     else:
       r.chrom = w
     inc(i)
@@ -217,7 +223,7 @@ proc init(arr: var coverage_t, tlen:int) =
         arr[i] = 0
 
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, L:var Lapper[region_t], mapq:int= -1, eflag: uint16=1796): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -233,16 +239,21 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     return -1
 
   tgt = targets[tid]
+  echo tgt.name, " ", L.len
 
   var found = false
   for rec in bam.regions(region, tid, targets):
-    arr.init(int(tgt.length+1))
-    found = true
+    # init is inside the loop so we dont initialize if the query is empty
+    if not found:
+      arr.init(int(tgt.length+1))
+      found = true
     if int(rec.qual) < mapq: continue
     if (rec.flag and eflag) != 0:
       continue
     if tgt.tid != rec.b.core.tid:
         raise newException(OSError, "expected only a single chromosome per query")
+
+    L.each_seek(rec.start, rec.stop, inc_count)
 
     # rec:   --------------
     # mate:             ------------
@@ -315,20 +326,20 @@ proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
 
   # since it is read into mem, can also well sort.
   for chrom, ivs in bed_regions.mpairs:
-      sort(ivs, proc (a, b: region_t): int = int(a.start) - int(b.start))
+      sort(ivs, proc (a, b: region_t): int = a.start - b.start)
 
   hts.free(kstr.s)
   return bed_regions
 
-iterator window_gen(window: uint32, t: hts.Target): region_t =
-  var start:uint32 = 0
-  while start + window < t.length:
+iterator window_gen(window: int, t: hts.Target): region_t =
+  var start = 0
+  while start + window < t.length.int:
     yield region_t(chrom: t.name, start: start, stop: start + window)
     start += window
-  if start != t.length:
-    yield region_t(chrom: t.name, start: start, stop: t.length)
+  if start != t.length.int:
+    yield region_t(chrom: t.name, start: start, stop: t.length.int)
 
-iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[string, seq[region_t]]): region_t =
+iterator region_gen(window: int, target: hts.Target, bed_regions: TableRef[string, seq[region_t]]): region_t =
     if bed_regions == nil:
       for r in window_gen(window, target): yield r
     else:
@@ -336,34 +347,34 @@ iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[st
         for r in bed_regions[target.name]: yield r
         bed_regions.del(target.name)
 
-proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
-  if vals == nil or start > uint32(len(vals)):
+proc imean(vals: coverage_t, start:int, stop:int): float64 =
+  if vals == nil or start > len(vals):
     return 0
-  for i in start .. <stop:
+  for i in start..<stop:
     if int(i) == len(vals): break
-    result += float64(vals[int(i)])
+    result += float64(vals[i])
   result /= float64(stop-start)
 
 const MAX_COVERAGE = int32(400000)
 
-proc inc(d: var seq[int64], coverage: coverage_t, start:uint32, stop:uint32) =
+proc inc(d: var seq[int64], coverage: coverage_t, start:int, stop:int) =
   var v:int32
   var L = int32(d.high)
-  if int(start) >= len(coverage):
+  if start >= len(coverage):
     stderr.write_line("[mosdepth] warning requested interval outside of chromosome range:", start, "..", stop)
     return
   var istop = stop
   if int(stop) > len(coverage):
-    istop = uint32(len(coverage))
+    istop = len(coverage)
 
   for i in start..<istop:
-    v = coverage[int(i)]
+    v = coverage[i]
     if v > MAX_COVERAGE:
       v = MAX_COVERAGE - 10
     if v >= L:
       d.set_len(v + 10)
       for i in (L+1)..d.high:
-        d[i] = 0
+        d[i.int] = 0'i64
       L = int32(d.high)
     if v < 0: continue
     inc(d[v])
@@ -428,8 +439,8 @@ proc write_thresholds(fh:BGZI, tid:int, arr:coverage_t, thresholds:seq[int], reg
   if thresholds == nil: return
   var
     line = new_string_of_cap(100)
-    start = int(region.start)
-    stop = int(region.stop)
+    start = region.start
+    stop = region.stop
   line.add(region.chrom & "\t")
   line.add(intToStr(start) & "\t")
   line.add(intToStr(stop))
@@ -473,7 +484,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     arr: coverage_t
     prefix: string = $(args["<prefix>"])
     skip_per_base = args["--no-per-base"]
-    window: uint32 = 0
+    window: int = 0
     bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
     fbase: BGZI
     #fbase: BGZ
@@ -503,7 +514,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   if region != nil:
     fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true)
     if region.isdigit():
-      window = uint32(S.parse_int(region))
+      window = S.parse_int(region)
     else:
       bed_regions = bed_to_table(region)
 
@@ -512,8 +523,12 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
     if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
+    var l:Lapper[region_t]
+    if bed_regions != nil and bed_regions.contains(target.name):
+      l = lapify(bed_regions[target.name])
+
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, mapq, eflag)
+    var tid = coverage(bam, arr, rchrom, l, mapq, eflag)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
@@ -528,16 +543,16 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
         var m = su.format_float(me, ffDecimal, precision=2)
 
         if r.name == nil:
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+          line.add(starget & intToStr(r.start) & "\t" & intToStr(r.stop) & "\t" & m)
         else:
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
+          line.add(starget & intToStr(r.start) & "\t" & intToStr(r.stop) & "\t" & r.name & "\t" & m)
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
         chrom_distribution.inc(arr, r.start, r.stop)
         write_thresholds(fthresholds, tid, arr, thresholds, r)
     else:
       if tid != -2:
-        chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
+        chrom_distribution.inc(arr, 0, len(arr))
 
     # write the distribution for each chrom
     write_distribution(target.name, chrom_distribution, fh_dist)
