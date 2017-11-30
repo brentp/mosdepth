@@ -1,4 +1,6 @@
-import hts as hts
+import hts/bam as hts
+import hts/bgzf/bgzi
+import hts/bgzf
 import tables
 import strutils as S
 import algorithm as alg
@@ -339,7 +341,7 @@ iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[st
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   if vals == nil or start > uint32(len(vals)):
     return 0
-  for i in start .. <stop:
+  for i in start..<stop:
     if int(i) == len(vals): break
     result += float64(vals[int(i)])
   result /= float64(stop-start)
@@ -362,8 +364,8 @@ proc inc(d: var seq[int64], coverage: coverage_t, start:uint32, stop:uint32) =
       v = MAX_COVERAGE - 10
     if v >= L:
       d.set_len(v + 10)
-      for i in (L+1)..d.high:
-        d[i] = 0
+      for j in (L+1).int..d.high:
+        d[j] = 0
       L = int32(d.high)
     if v < 0: continue
     inc(d[v])
