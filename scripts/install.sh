@@ -1,5 +1,8 @@
 #!/bin/bash
 
+
+#NOTE that to use this outside of travis, you'll want to export BRANCH=master
+
 echo $(pwd)
 
 sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
