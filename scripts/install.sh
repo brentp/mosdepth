@@ -5,6 +5,8 @@
 
 echo $(pwd)
 
+BRANCH=${BRANCH:-master}
+
 sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
      curl  libssl-dev libtool autoconf automake libcurl4-openssl-dev
 

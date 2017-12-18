@@ -1,6 +1,8 @@
 0.2.1
 =====
 + allow unsorted bed as input to --by
++ allow setting precision with env var, e.g. `MOSDEPTH_PRECISION=5`
++ small performance increase.
 
 0.2.0
 =====

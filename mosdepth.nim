@@ -10,6 +10,15 @@ import os
 import docopt
 import times
 
+
+var precision: int
+try:
+  var tmp = getEnv("MOSDEPTH_PRECISION")
+  precision = parse_int(tmp)
+except:
+  precision = 2
+
+
 type
   pair = tuple[pos: int, value: int32]
   depth_t = tuple[start: int, stop: int, value: int]
@@ -386,7 +395,7 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
     if irev > 300 and v == 0: continue
     cum += float64(v) / float64(sum)
     if cum < 8e-5: continue
-    fh.write_line(chrom, "\t", $irev & "\t" & su.format_float(cum, ffDecimal, precision=4))
+    fh.write_line(chrom, "\t", $irev & "\t" & su.format_float(cum, ffDecimal, precision=precision))
   # reverse it back because we use to update the full genome
   reverse(d)
 
@@ -527,7 +536,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
       for r in region_gen(window, target, bed_regions):
         if tid != -2:
           me = imean(arr, r.start, r.stop)
-        var m = su.format_float(me, ffDecimal, precision=2)
+        var m = su.format_float(me, ffDecimal, precision=precision)
 
         if r.name == nil:
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
@@ -612,7 +621,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.0"
+  let version = "mosdepth 0.2.1"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version

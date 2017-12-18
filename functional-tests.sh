@@ -2,6 +2,7 @@
 unset MOSDEPTH_Q0
 unset MOSDEPTH_Q1
 unset MOSDEPTH_Q2
+unset MOSDEPTH_PRECISION
 
 test -e ssshtest || wget -q https://raw.githubusercontent.com/ryanlayer/ssshtest/master/ssshtest
 
@@ -67,11 +68,12 @@ assert_exit_code 0
 
 export MOSDEPTH_Q0=AAA
 export MOSDEPTH_Q1=BBB
-rm -f t.quantized.bed.gz
-run quantest-named $exe -q 0:1:1000 t tests/ovl.bam
+rm -f t.quantized.bed.gz t.mosdepth.dist.txt
+MOSDEPTH_PRECISION=7 run quantest-named-and-precision $exe -q 0:1:1000 t tests/ovl.bam
 assert_exit_code 0
 assert_equal "$(zgrep -w ^MT t.quantized.bed.gz)" "MT	0	80	BBB
 MT	80	16569	AAA"
+assert_equal "$(head -1 t.mosdepth.dist.txt)" "MT	1	0.0048280"
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0
@@ -81,8 +83,6 @@ run track_header_by $exe --by tests/bad.bed t tests/ovl.bam
 assert_exit_code 1
 assert_in_stderr "skipping bad bed line:MT	2"
 assert_in_stderr "invalid integer: asdf"
-
-
 
 
 test -e $bam || exit

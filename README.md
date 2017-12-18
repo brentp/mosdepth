@@ -22,7 +22,7 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ## usage
 
 ```
-mosdepth 0.2.0
+mosdepth 0.2.1
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
@@ -111,15 +111,17 @@ The result is a BED file where adjacent bases with depths that fall into the sam
 bin are merged into a single region with the 4th column indicating the label.
 
 
-### Distribution only
+### Distribution only with modified precision
 
 To get only the distribution value, without the depth file or the per-base and using 3 threads:
 
 ```
-mosdepth -n -t 3 $sample $bam
+MOSDEPTH_PRECISION=5 mosdepth -n -t 3 $sample $bam
 ```
 
 Output will go to `$sample.mosdepth.dist.txt`
+
+This also forces the output to have 5 decimals of precision rather than the default of 2.
 
 ## Installation
 
