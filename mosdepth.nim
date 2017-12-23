@@ -1,6 +1,4 @@
-import hts/bam as hts
-import hts/bgzf/bgzi
-import hts/bgzf
+import hts
 import tables
 import strutils as S
 import algorithm as alg
@@ -309,8 +307,8 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
 
 proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
-  var hf = hts.hts_open(cstring(bed), "r")
-  var kstr: hts.kstring_t
+  var kstr: kstring_t
+  var hf = hts_open(cstring(bed), "r")
   kstr.l = 0
   kstr.m = 0
   kstr.s = nil
