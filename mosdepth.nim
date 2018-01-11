@@ -136,7 +136,7 @@ iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s {.inline.} =
 proc pair_sort(a, b: pair): int =
    return a.pos - b.pos
 
-iterator gen_start_ends(c: Cigar, ipos: int): pair =
+iterator gen_start_ends(c: Cigar, ipos: int): pair {.inline.} =
   # generate start, end pairs given a cigar string and a position offset.
   if c.len == 1 and c[0].op == CigarOp.match:
     yield (ipos, int32(1))
@@ -160,7 +160,7 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair =
     if last_stop != -1:
       yield (last_stop, int32(-1))
 
-proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {. inline .} =
+proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {.inline.} =
   for p in gen_start_ends(c, ipos):
       arr[p.pos] += p.value
 
