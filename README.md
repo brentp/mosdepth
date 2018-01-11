@@ -182,7 +182,7 @@ more details.
 ## thresholds
 
 given a set of regions to the `--by` argment, `mosdepth` can report the number of bases in each region that
-are covered at or above each threshold value given to `--tresholds`. e.g:
+are covered at or above each threshold value given to `--thresholds`. e.g:
 ```
 mosdepth --by exons.bed --thresholds 1,10,20,30 $prefix $bam
 ```
