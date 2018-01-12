@@ -2,7 +2,8 @@
 =====
 + allow unsorted bed as input to --by
 + allow setting precision with env var, e.g. `MOSDEPTH_PRECISION=5`
-+ small performance increase.
++ moderate performance increase.
++ build using holy-build box to better support systems with older libc.
 
 0.2.0
 =====
