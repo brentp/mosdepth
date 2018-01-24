@@ -139,6 +139,22 @@ contains `libhts.so`. e.g.
 If you get the error `could not import: hts_check_EOF` you may need to 
 install a more recent version of htslib.
 
+`mosdepth` also requires a recent version of [PCRE](https://www.pcre.org/), and will give the error `could not import: pcre_free_study` if the version of PCRE on your system is too old.
+If you do not have root and cannot get the system version of PCRE upgraded, you download and compile a local copy
+```
+cd ~/src/
+wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.41.tar.gz
+tar zxvf pcre-8.41.tar.gz
+cd pcre-8.41/
+./configure
+make
+```
+
+Then pass that path to mosdepth just like we did with htslib
+```
+LD_LIBRARY_PATH=~/src/pcre-8.41/.libs/:/~/src/htslib/ mosdepth -h
+```
+
 If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
 and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
 
