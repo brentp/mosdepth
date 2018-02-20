@@ -25,7 +25,7 @@ for f in sys.argv[1:]:
             if not found and y > 0.5:
                 v50 = x
                 found = True
-                print "%s\t%s\t%s\t%.3f" % (sample, chrom, x, y)
+                print("{}\t{}\t{}\t{:.3f}".format(sample, chrom, x, y))
 
             xs.append(float(x))
             ys.append(y)
