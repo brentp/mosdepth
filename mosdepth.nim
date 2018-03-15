@@ -348,10 +348,10 @@ iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[st
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   if vals == nil or start > uint32(len(vals)):
     return 0
+  var L = float64(stop - start)
   for i in start..<stop:
     if int(i) == len(vals): break
-    result += float64(vals[int(i)])
-  result /= float64(stop-start)
+    result += float64(vals[int(i)]) / float64(stop-start)
 
 const MAX_COVERAGE = int32(400000)
 
@@ -619,7 +619,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.1"
+  let version = "mosdepth 0.2.2"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version
@@ -664,6 +664,10 @@ Other options:
 
   if $args["--by"] != "nil":
     region = $args["--by"]
+  else:
+    if thresholds != nil:
+      stderr.write_line("[mosdepth] error --thresholds can noly be used when --by is specified.")
+      quit(2)
   GC_disableMarkAndSweep()
   var fasta: cstring = nil
   if $args["--fasta"] != "nil":
