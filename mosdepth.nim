@@ -408,7 +408,10 @@ proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
 # copy the chromosome array into the genome-wide
 proc sum_into(afrom: seq[int64], ato: var seq[int64]) =
   if len(afrom) > len(ato):
+    var b = len(ato)
     ato.set_len(afrom.len)
+    for i in b..ato.high:
+      ato[i] = 0
 
   for i in 0..afrom.high:
     ato[i] += afrom[i]
@@ -489,11 +492,15 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     fquantize: BGZI
     fthresholds: BGZI
     fregion: BGZI
-    fh_dist:File
+    fh_global_dist:File
+    fh_region_dist:File
     quantize = get_quantize_args($args["--quantize"])
 
-  var distribution = new_seq[int64](1000)
-  var chrom_distribution: seq[int64]
+  var region_distribution = new_seq[int64](1000)
+  var global_distribution = new_seq[int64](1000)
+
+  var chrom_region_distribution, chrom_global_distribution: seq[int64]
+
   if not skip_per_base:
     # can't use set-threads when indexing on the fly so this must
     # not call set_threads().
@@ -506,7 +513,10 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1)
     fthresholds.write_header(thresholds)
 
-  if not open(fh_dist, prefix & ".mosdepth.dist.txt", fmWrite):
+  if not open(fh_global_dist, prefix & ".mosdepth.global.dist.txt", fmWrite):
+    stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.global.dist.txt")
+
+  if region != nil and not open(fh_region_dist, prefix & ".mosdepth.region.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
   if region != nil:
@@ -517,7 +527,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
       bed_regions = bed_to_table(region)
 
   for target in sub_targets:
-    chrom_distribution = new_seq[int64](1000)
+    chrom_global_distribution = new_seq[int64](1000)
+    if region != nil:
+      chrom_region_distribution = new_seq[int64](1000)
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
     if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
@@ -542,17 +554,21 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
-        chrom_distribution.inc(arr, r.start, r.stop)
+        chrom_region_distribution.inc(arr, r.start, r.stop)
         write_thresholds(fthresholds, tid, arr, thresholds, r)
-    else:
-      if tid != -2:
-        chrom_distribution.inc(arr, uint32(0), uint32(len(arr)))
+    if tid != -2:
+      chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr)))
 
     # write the distribution for each chrom
-    write_distribution(target.name, chrom_distribution, fh_dist)
+    write_distribution(target.name, chrom_global_distribution, fh_global_dist)
+    if region != nil:
+      write_distribution(target.name, chrom_region_distribution, fh_region_dist)
+
     # then copy it to the genome distribution
     if tid >= 0:
-      sum_into(chrom_distribution, distribution)
+      if region != nil:
+        sum_into(chrom_region_distribution, region_distribution)
+      sum_into(chrom_global_distribution, global_distribution)
 
     if not skip_per_base:
       if tid == -2:
@@ -568,31 +584,31 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
         for p in gen_quantized(quantize, arr):
             discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
 
-  write_distribution("total", distribution, fh_dist)
+  write_distribution("total", global_distribution, fh_global_dist)
+  if region != nil:
+    write_distribution("total", region_distribution, fh_region_dist)
+    fh_region_dist.close()
+
   if bed_regions != nil and chrom == nil:
     for chrom, regions in bed_regions:
       stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
 
-  if fregion != nil:
-    if close(fregion) != 0:
+  if fregion != nil and close(fregion) != 0:
       stderr.write_line("[mosdepth] error writing region file\n")
       quit(1)
 
-  if fquantize != nil:
-    if close(fquantize) != 0:
+  if fquantize != nil and close(fquantize) != 0:
       stderr.write_line("[mosdepth] error writing quantize file\n")
       quit(1)
 
-  if fthresholds != nil:
-    if close(fthresholds) != 0:
+  if fthresholds != nil and close(fthresholds) != 0:
       stderr.write_line("[mosdepth] error writing thresholds file\n")
       quit(1)
 
-  if fbase != nil:
-    if close(fbase) != 0:
+  if fbase != nil and close(fbase) != 0:
       stderr.write_line("[mosdepth] error writing per-base file\n")
       quit(1)
-  close(fh_dist)
+  close(fh_global_dist)
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
   if r == nil: return

@@ -68,12 +68,12 @@ assert_exit_code 0
 
 export MOSDEPTH_Q0=AAA
 export MOSDEPTH_Q1=BBB
-rm -f t.quantized.bed.gz t.mosdepth.dist.txt
+rm -f t.quantized.bed.gz t.mosdepth.global.dist.txt
 MOSDEPTH_PRECISION=7 run quantest-named-and-precision $exe -q 0:1:1000 t tests/ovl.bam
 assert_exit_code 0
 assert_equal "$(zgrep -w ^MT t.quantized.bed.gz)" "MT	0	80	BBB
 MT	80	16569	AAA"
-assert_equal "$(head -1 t.mosdepth.dist.txt)" "MT	1	0.0048280"
+assert_equal "$(head -1 t.mosdepth.global.dist.txt)" "MT	1	0.0048280"
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0
@@ -91,6 +91,6 @@ run short $exe -c chrM t $bam
 assert_equal "$(zgrep -w "chrM	9999	10000" t.per-base.bed.gz)" "chrM	9999	10000	19073"
 assert_exit_code 0
 
-run flag $exe -c chrM -F 4 --by 20000 t /data/human/NA12878.subset.bam
+run flag $exe -c chrM -F 4 --by 20000 tx /data/human/NA12878.subset.bam
 assert_exit_code 0
 

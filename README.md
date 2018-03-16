@@ -28,7 +28,8 @@ mosdepth 0.2.1
 
 Arguments:
 
-  <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
+  <prefix>       outputs: `{prefix}.mosdepth.global.dist.txt` (NOTE!!! this is changed in version 0.2.2)
+                          `{prefix}.mosdepth.region.dist.txt` (if --by is specified)
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
                           `{prefix}.quantized.bed.gz` (if --quantize is specified)
@@ -164,8 +165,8 @@ If you use archlinux, you can [install as a package](https://aur.archlinux.org/p
 
 This is **useful for QC**.
 
-The `$prefix.mosdepth.dist.txt` file contains, a cumulative distribution indicating the
-proportion of bases (or the proportion of the `--by`) that were covered
+The `$prefix.mosdepth.global.dist.txt` file contains, a cumulative distribution indicating the
+proportion of total bases (or the proportion of the `--by` for `$prefix.mosdepth.region.dist.txt) that were covered
 for at least a given coverage value. It does this for each chromosom, and for then
 whole genome.
 
@@ -178,7 +179,7 @@ The last value in each chromosome will be coverage level of 0 aligned with
 1.0 bases covered at that level.
 
 A python plotting script is provided in `scripts/plot-dist.py` that will make 
-plots like below. Use is `python scripts/plot-dist.py *.dist` and the output
+plots like below. Use is `python scripts/plot-dist.py \*global.dist` and the output
 is `dist.html` with a plot for the full set along with one for each chromosome.
 
 Using something like that, we can plot the distribution from the entire genome.

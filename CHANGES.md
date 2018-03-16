@@ -1,6 +1,9 @@
 0.2.2
 =====
 + fix overflow with huge intervals to --by
++ **NOTE** change to output file name of `*.dist.txt`. A file named `$prefix.mosdepth.global.dist.txt`
+  will always be created and `$prefix.mosdepth.region.dist.txt` will be created if `--by` is specified.
+  Previously, there was only a single file named `$prefix.mosdepth.dist.txt` which no longer exists.
 
 0.2.1
 =====
