@@ -1,3 +1,7 @@
+0.2.2
+=====
++ fix overflow with huge intervals to --by
+
 0.2.1
 =====
 + allow unsorted bed as input to --by

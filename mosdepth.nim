@@ -351,7 +351,7 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   var L = float64(stop - start)
   for i in start..<stop:
     if int(i) == len(vals): break
-    result += float64(vals[int(i)]) / float64(stop-start)
+    result += float64(vals[int(i)]) / L
 
 const MAX_COVERAGE = int32(400000)
 
