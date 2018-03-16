@@ -4,6 +4,8 @@
 + **NOTE** change to output file name of `*.dist.txt`. A file named `$prefix.mosdepth.global.dist.txt`
   will always be created and `$prefix.mosdepth.region.dist.txt` will be created if `--by` is specified.
   Previously, there was only a single file named `$prefix.mosdepth.dist.txt` which no longer exists.
+  This allows users to, for example, use --by to see coverage of gene regions for WGS, and to see the
+  global WGS coverage and the coverage in their genes of interest.
 
 0.2.1
 =====
