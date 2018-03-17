@@ -6,6 +6,8 @@
   Previously, there was only a single file named `$prefix.mosdepth.dist.txt` which no longer exists.
   This allows users to, for example, use --by to see coverage of gene regions for WGS, and to see the
   global WGS coverage and the coverage in their genes of interest.
++ fix bug that would manifest with consecutive chromosomes of the same length. chromosomes other than
+  the first of a given length would have incorrect values.
 
 0.2.1
 =====

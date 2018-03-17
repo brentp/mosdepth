@@ -214,17 +214,17 @@ proc get_tid(tgts: seq[hts.Target], chrom: string): int =
       return t.tid
 
 proc init(arr: var coverage_t, tlen:int) =
-
+  ## try to re-use the array.
   if arr == nil or len(arr) != int(tlen):
     # must create a new array in some cases.
-    if arr == nil or len(arr) < int(tlen):
+    if arr == nil:
       arr = new_seq[int32](tlen)
+      return
     else:
       # otherwise can re-use and zero
       arr.set_len(int(tlen))
-      for i in 0..<len(arr):
-        arr[i] = 0
-
+  for m in arr.mitems:
+    m = 0
 
 proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
   # depth updates arr in-place and yields the tid for each chrom.
@@ -245,8 +245,9 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
 
   var found = false
   for rec in bam.regions(region, tid, targets):
-    arr.init(int(tgt.length+1))
-    found = true
+    if not found:
+      arr.init(int(tgt.length+1))
+      found = true
     if int(rec.qual) < mapq: continue
     if (rec.flag and eflag) != 0:
       continue
