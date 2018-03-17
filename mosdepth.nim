@@ -164,7 +164,7 @@ proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {.inline.} =
   for p in gen_start_ends(c, ipos):
       arr[p.pos] += p.value
 
-iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Target]): Record =
+iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Target]): Record {.inline.} =
   if region == nil:
     for r in bam:
       yield r
@@ -223,8 +223,9 @@ proc init(arr: var coverage_t, tlen:int) =
     else:
       # otherwise can re-use and zero
       arr.set_len(int(tlen))
-  for m in arr.mitems:
-    m = 0
+  zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
+  #for m in arr.mitems:
+  #  m = 0
 
 proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
   # depth updates arr in-place and yields the tid for each chrom.
