@@ -38,7 +38,7 @@ Arguments:
   <BAM-or-CRAM>  the alignment file for which to calculate depth.
 
 Common Options:
-  
+
   -t --threads <threads>     number of BAM decompression threads. (use 4 or fewer) [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -b --by <bed|window>       optional BED file or (integer) window-sizes.
@@ -131,13 +131,13 @@ The simplest way is to [![install with bioconda](https://img.shields.io/badge/in
 Unless you want to install [nim](https://nim-lang.org), simply download the
 [binary from the releases](https://github.com/brentp/mosdepth/releases).
 
-`mosdepth` uses requires htslib version 1.4 or later. If you get an error 
-about "`libhts.so` not found", set `LD_LIBRARY_PATH` to the directory that 
+`mosdepth` uses requires htslib version 1.4 or later. If you get an error
+about "`libhts.so` not found", set `LD_LIBRARY_PATH` to the directory that
 contains `libhts.so`. e.g.
 
 `LD_LIBRARY_PATH=~/src/htslib/ mosdepth -h`
 
-If you get the error `could not import: hts_check_EOF` you may need to 
+If you get the error `could not import: hts_check_EOF` you may need to
 install a more recent version of htslib.
 
 `mosdepth` also requires a recent version of [PCRE](https://www.pcre.org/), and will give the error `could not import: pcre_free_study` if the version of PCRE on your system is too old.
@@ -178,8 +178,8 @@ Each row will indicate:
 The last value in each chromosome will be coverage level of 0 aligned with
 1.0 bases covered at that level.
 
-A python plotting script is provided in `scripts/plot-dist.py` that will make 
-plots like below. Use is `python scripts/plot-dist.py \*global.dist` and the output
+A python plotting script is provided in `scripts/plot-dist.py` that will make
+plots like below. Use is `python scripts/plot-dist.py \*global.dist.txt` and the output
 is `dist.html` with a plot for the full set along with one for each chromosome.
 
 Using something like that, we can plot the distribution from the entire genome.
@@ -269,7 +269,7 @@ can be done without a noticeable increase in run-time. The image below conveys t
 This array accounting is very fast. There are no extra allocations or objects to track and
 it is also conceptually simple. For these reasons, it is faster than `samtools depth` which
 works by using the [pileup](http://samtools.sourceforge.net/pileup.shtml) machinery that
-tracks each read, each base. 
+tracks each read, each base.
 
 The `mosdepth` method has some limitations. Because a large array is allocated and it is
 required (in general) to take the cumulative sum of all preceding positions to know the depth
