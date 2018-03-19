@@ -4,7 +4,6 @@ import json
 import itertools as it
 from operator import itemgetter
 import collections
-import sys
 
 traces = collections.defaultdict(list)
 chroms = collections.OrderedDict()
@@ -14,14 +13,16 @@ for f in sys.argv[1:]:
     sample = f.replace(".mosdepth.dist.txt", "")
     gen = (x.rstrip().split("\t") for x in open(f))
     for chrom, data in it.groupby(gen, itemgetter(0)):
-        if chrom.startswith("GL"): continue
+        if chrom.startswith("GL"):
+            continue
         chroms[chrom] = True
         xs, ys = [], []
         v50 = 0
         found = False
         for _, x, y in data:
             y = float(y)
-            if y < 0.01: continue
+            if y < 0.01:
+                continue
             if not found and y > 0.5:
                 v50 = x
                 found = True
@@ -38,10 +39,10 @@ for f in sys.argv[1:]:
                 ys = ys[::2]
 
         traces[chrom].append({
-               'x': [round(x, 3) for x in xs],
-               'y': [round(y, 3) for y in ys],
-               'mode': 'lines',
-               'name': sample + (" (%.1f)" % float(v50))
+            'x': [round(x, 3) for x in xs],
+            'y': [round(y, 3) for y in ys],
+            'mode': 'lines',
+            'name': sample + (" (%.1f)" % float(v50))
         })
 
 tmpl = """<html>
@@ -81,7 +82,9 @@ tmpl = string.Template(tmpl)
 with open("dist.html", "w") as html:
     divs = "\n".join("<{div}>{chrom}</{div}><div id='plot-div-{chrom}'></div><hr/>".format(
         chrom=c, div="h2" if c == "total" else "b") for c in chroms)
-    html.write(tmpl.substitute(showlegend="true" if len(sys.argv[1:]) < 20 else "false", plot_divs=divs))
+    html.write(tmpl.substitute(showlegend="true" if len(
+        sys.argv[1:]) < 20 else "false", plot_divs=divs))
     for chrom in chroms:
-        html.write(string.Template(chr_tmpl).substitute(chrom=chrom, data=json.dumps(traces[chrom])))
+        html.write(string.Template(chr_tmpl).substitute(
+            chrom=chrom, data=json.dumps(traces[chrom])))
     html.write(footer)
