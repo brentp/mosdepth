@@ -4,6 +4,7 @@ import json
 import itertools as it
 from operator import itemgetter
 import collections
+from argparse import ArgumentParser
 
 traces = collections.defaultdict(list)
 chroms = collections.OrderedDict()
@@ -22,6 +23,7 @@ for f in sys.argv[1:]:
         for _, x, y in data:
             y = float(y)
             if y < 0.01:
+    args = get_args()
                 continue
             if not found and y > 0.5:
                 v50 = x
@@ -73,6 +75,15 @@ footer = """
 </script>
 </body>
 </html>"""
+def get_args():
+    parser = ArgumentParser(description="Creates html plots from mosdepth results.")
+    parser.add_argument("-o", "--output",
+                        default="dist.html",
+                        help="path and name of output file. Directories must exist.")
+    parser.add_argument("input",
+                        nargs='+',
+                        help="the dist file(s) to use for plotting")
+    return parser.parse_args()
 
 chr_tmpl = """
 Plotly.newPlot('plot-div-$chrom', $data, layout, {displayModeBar: false, displaylogo: false, fillFrame: false, autosizeable: true});
