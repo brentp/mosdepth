@@ -24,6 +24,7 @@ for f in sys.argv[1:]:
             y = float(y)
             if y < 0.01:
     args = get_args()
+        sample = f.replace(".mosdepth.global.dist.txt", "")
                 continue
             if not found and y > 0.5:
                 v50 = x
