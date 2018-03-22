@@ -14,7 +14,7 @@ export base=$(pwd)
 if [ ! -x nim-$BRANCH/bin/nim ]; then
   git clone -b $BRANCH --depth 1 git://github.com/nim-lang/nim nim-$BRANCH/
   cd nim-$BRANCH
-  git clone --depth 1 git://github.com/nim-lang/csources csources/
+  git clone -b $BRANCH --depth 1 git://github.com/nim-lang/csources csources/
   cd csources
   sh build.sh
   cd ..
