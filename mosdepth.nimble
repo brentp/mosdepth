@@ -7,7 +7,7 @@ license       = "MIT"
 
 # Dependencies
 
-requires "nim >= 0.17.0", "hts >= 0.1.5", "docopt"
+requires "nim >= 0.17.0", "hts >= 0.1.8", "docopt"
 
 bin = @["mosdepth"]
 skipDirs = @["tests"]
