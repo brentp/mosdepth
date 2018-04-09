@@ -5,8 +5,6 @@ NIMBLE_VERSION=v0.8.10
 
 base=$(pwd)
 
-yum install -y git curl
-
 git clone -b $NIM_VERSION --depth 1 git://github.com/nim-lang/nim nim-$NIM_VERSION/
 cd nim-$NIM_VERSION
 git clone -b $NIM_VERSION --depth 1 git://github.com/nim-lang/csources csources/
