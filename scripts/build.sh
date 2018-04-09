@@ -1,6 +1,7 @@
 set -euo pipefail
 
 NIM_VERSION=v0.17.2
+NIMBLE_VERSION=v0.8.10
 
 base=$(pwd)
 
@@ -16,43 +17,29 @@ cd ..
 rm -rf csources
 bin/nim c koch
 ./koch boot -d:release
-#/koch nimble
 
 export PATH=$PATH:$base/nim-$NIM_VERSION/bin/:$PATH:$base/nimble/src
 
 cd $base
 
-#git clone --depth 1 https://github.com/nim-lang/nimble.git
-#cd nimble
-curl -Lo master.tar.gz  https://github.com/nim-lang/nimble/archive/master.tar.gz
-tar xzvf master.tar.gz
-rm -f master.tar.gz
-cd nimble-master
+git clone -b $NIMBLE_VERSION --depth 1 git://github.com/nim-lang/nimble.git
+cd nimble
 nim c src/nimble
 cp ./src/nimble /usr/bin/
-#src/nimble install -y
 
 cd $base
-curl -Lo master.tar.gz  https://github.com/brentp/hts-nim/archive/master.tar.gz
-#git clone --depth 1 https://github.com/brentp/hts-nim
-tar xzvf master.tar.gz
-rm -rf master.tar.gz
-cd hts-nim-master
+git clone --depth 1 git://github.com/brentp/hts-nim.git
+cd hts-nim
 grep -v requires hts.nimble > k.nimble && mv k.nimble hts.nimble
 nimble install -y
 
 cd $base
-curl -Lo master.tar.gz  https://github.com/docopt/docopt.nim/archive/master.tar.gz
-tar xzvf master.tar.gz
-rm -rf master.tar.gz
-cd docopt.nim-master
+git clone --depth 1 git://github.com/docopt/docopt.nim.git
+cd docopt.nim
 nimble install -y
 
-#git clone --depth 1 https://github.com/brentp/mosdepth
 cd $base
-curl -Lo master.tar.gz  https://github.com/brentp/mosdepth/archive/master.tar.gz
-tar xzvf master.tar.gz
-rm -rf master.tar.gz
-cd mosdepth-master
+git clone --depth 1 git://github.com/brentp/mosdepth.git
+cd mosdepth
 nim c -d:release mosdepth.nim 
 cp ./mosdepth /io
