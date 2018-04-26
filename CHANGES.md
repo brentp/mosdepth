@@ -1,3 +1,7 @@
+0.2.3
+=====
++ fix bug in region.dist with chromosomes in bam header, but without any reads. thanks (@vladsaveliev for reporting)
+
 0.2.2
 =====
 + fix overflow with huge intervals to --by
