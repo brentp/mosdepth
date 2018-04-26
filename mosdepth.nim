@@ -556,10 +556,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
-        chrom_region_distribution.inc(arr, r.start, r.stop)
+        if tid != -2:
+          chrom_region_distribution.inc(arr, r.start, r.stop)
         write_thresholds(fthresholds, tid, arr, thresholds, r)
     if tid != -2:
-      chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr)))
+      chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr) - 1))
 
     # write the distribution for each chrom
     write_distribution(target.name, chrom_global_distribution, fh_global_dist)
@@ -637,7 +638,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.2"
+  let version = "mosdepth 0.2.3"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version

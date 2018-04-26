@@ -73,7 +73,7 @@ MOSDEPTH_PRECISION=7 run quantest-named-and-precision $exe -q 0:1:1000 t tests/o
 assert_exit_code 0
 assert_equal "$(zgrep -w ^MT t.quantized.bed.gz)" "MT	0	80	BBB
 MT	80	16569	AAA"
-assert_equal "$(head -1 t.mosdepth.global.dist.txt)" "MT	1	0.0048280"
+assert_equal "$(head -1 t.mosdepth.global.dist.txt)" "MT	1	0.0048283"
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0
