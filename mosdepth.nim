@@ -477,6 +477,21 @@ proc write_header(fh:BGZI, thresholds: seq[int]) =
     discard fh.bgz.write("\t" & intToStr(threshold) & "X")
   discard fh.bgz.write("\n")
 
+proc get_min_levels(targets: seq[Target]): int =
+  # determine how many levels are needed to store the data given
+  # the largest chromosome
+  var max_len = targets[0].length.uint64
+  for t in targets:
+    if t.length > max_len:
+      max_len = t.length.uint64
+
+  result = 0
+  var s = (1 shl 14).uint64
+  while max_len > s:
+    result += 1
+    s = s shl 3
+
+
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, thresholds: seq[int], args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
@@ -501,18 +516,20 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
   var region_distribution = new_seq[int64](1000)
   var global_distribution = new_seq[int64](1000)
 
+  var levels = get_min_levels(targets)
+
   var chrom_region_distribution, chrom_global_distribution: seq[int64]
 
   if not skip_per_base:
     # can't use set-threads when indexing on the fly so this must
     # not call set_threads().
-    fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1)
+    fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
     #open(fbase, prefix & ".per-base.bed.gz", "w1")
   if quantize != nil:
-    fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true, compression_level=1)
+    fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
 
   if thresholds != nil:
-    fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1)
+    fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
     fthresholds.write_header(thresholds)
 
   if not open(fh_global_dist, prefix & ".mosdepth.global.dist.txt", fmWrite):
@@ -522,7 +539,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
   if region != nil:
-    fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true)
+    fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true, levels=levels)
     if region.isdigit():
       window = uint32(S.parse_int(region))
     else:

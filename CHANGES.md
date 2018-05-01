@@ -1,6 +1,7 @@
 0.2.3
 =====
 + fix bug in region.dist with chromosomes in bam header, but without any reads. thanks (@vladsaveliev for reporting)
++ support for chromosomes larger than 2^29. (thanks @kaspernie for reporting #41)
 
 0.2.2
 =====

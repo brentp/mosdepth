@@ -84,6 +84,8 @@ assert_exit_code 1
 assert_in_stderr "skipping bad bed line:MT	2"
 assert_in_stderr "invalid integer: asdf"
 
+run big_chrom $exe t tests/big.bam
+assert_exit_code 0
 
 test -e $bam || exit
 
