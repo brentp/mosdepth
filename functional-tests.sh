@@ -87,6 +87,13 @@ assert_in_stderr "invalid integer: asdf"
 run big_chrom $exe t tests/big.bam
 assert_exit_code 0
 
+
+rm -f t.mosdepth.region.dist.txt
+run empty_tids $exe t -n --thresholds 1,5 --by tests/empty-tids.bed tests/empty-tids.bam
+assert_exit_code 0
+assert_equal $(grep -w HPV26 -c t.mosdepth.region.dist.txt) 0
+
+
 test -e $bam || exit
 
 run short $exe -c chrM t $bam
