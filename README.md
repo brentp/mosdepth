@@ -156,6 +156,9 @@ Then pass that path to mosdepth just like we did with htslib
 LD_LIBRARY_PATH=~/src/pcre-8.41/.libs/:/~/src/htslib/ mosdepth -h
 ```
 
+If you still see an error about `could not import: pcre_free_study` then 
+for some, the solution has been to do: `ln -s /usr/local/lib/libpcre.so /usr/local/lib/libpcre.so.3`
+
 If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
 and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
 
