@@ -227,7 +227,7 @@ proc init(arr: var coverage_t, tlen:int) =
   #for m in arr.mitems:
   #  m = 0
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -251,6 +251,8 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
       found = true
     if int(rec.mapping_quality) < mapq: continue
     if (rec.flag and eflag) != 0:
+      continue
+    if iflag != 0 and ((rec.flag and iflag) == 0):
       continue
     if tgt.tid != rec.b.core.tid:
         raise newException(OSError, "expected only a single chromosome per query")
@@ -492,7 +494,7 @@ proc get_min_levels(targets: seq[Target]): int =
     s = s shl 3
 
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: string, thresholds: seq[int], args: Table[string, docopt.Value]) =
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int], args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -553,7 +555,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, region: strin
     if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, mapq, eflag)
+    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
@@ -655,7 +657,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.3"
+  let version = "mosdepth 0.2.4"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version
@@ -684,6 +686,7 @@ Common Options:
 Other options:
 
   -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
+  -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold [default: 0]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
@@ -711,6 +714,7 @@ Other options:
 
   var
     eflag: uint16 = uint16(S.parse_int($args["--flag"]))
+    iflag: uint16 = uint16(S.parse_int($args["--include-flag"]))
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
     bam:Bam
@@ -726,4 +730,4 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, region, thresholds, args)
+  main(bam, chrom, mapq, eflag, iflag, region, thresholds, args)

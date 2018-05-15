@@ -49,6 +49,7 @@ Common Options:
 Other options:
 
   -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
+  -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold [default: 0]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
