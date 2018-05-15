@@ -29,7 +29,7 @@ type
 
   coverage_t = seq[int32]
 
-proc `$`(r: region_t): string =
+proc `$`*(r: region_t): string =
   if r == nil:
     return nil
   if r.stop != 0:
@@ -44,16 +44,12 @@ proc to_coverage(c: var coverage_t) =
     d += v
     c[i] = d
 
-proc length(r: region_t): int =
-  return int(r.stop - r.start)
-
 iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
   var
     last_depth = -1
-    depth = 0
     i = 0
     last_i = 0
     stop: int
@@ -224,8 +220,6 @@ proc init(arr: var coverage_t, tlen:int) =
       # otherwise can re-use and zero
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
-  #for m in arr.mitems:
-  #  m = 0
 
 proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0): int =
   # depth updates arr in-place and yields the tid for each chrom.
@@ -311,11 +305,8 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
 
 proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
-  var kstr: kstring_t
+  var kstr = kstring_t(l:0, m: 0, s: nil)
   var hf = hts_open(cstring(bed), "r")
-  kstr.l = 0
-  kstr.m = 0
-  kstr.s = nil
   while hts_getline(hf, cint(10), addr kstr) > 0:
     if ($kstr.s).startswith("track "):
       continue
