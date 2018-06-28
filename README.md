@@ -129,6 +129,8 @@ This also forces the output to have 5 decimals of precision rather than the defa
 
 The simplest way is to [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
 
+It can also be installed with `brew` as `brew install brewsci/bio/mosdepth`
+
 Unless you want to install [nim](https://nim-lang.org), simply download the
 [binary from the releases](https://github.com/brentp/mosdepth/releases).
 
