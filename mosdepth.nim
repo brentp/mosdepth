@@ -415,6 +415,8 @@ proc get_quantize_args*(qa: string) : seq[int] =
   if qa == "nil":
     return nil
   var a = qa
+  if a.count(':') == 0:
+    a = ':' & a & ':'
   # if it starts with : we go prepend 0
   if a[0] == ':':
     a = "0" & a

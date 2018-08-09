@@ -11,7 +11,7 @@ test -e ssshtest || wget -q https://raw.githubusercontent.com/ryanlayer/ssshtest
 set -o nounset
 
 set -e
-nim c --boundChecks:off mosdepth.nim
+nim c --boundChecks:on -x:on mosdepth.nim
 set +e
 exe=./mosdepth
 bam=/data/human/NA12878.subset.bam
@@ -53,6 +53,9 @@ assert_exit_code 0
 assert_equal "$(zgrep ^MT t.quantized.bed.gz)" "MT	0	80	1:1000
 MT	80	16569	0:1"
 assert_equal "$(zgrep -w ^1 t.quantized.bed.gz)" "1	0	249250621	0:1"
+
+run single-quant $exe -q 60 t tests/nanopore.bam
+assert_exit_code 0
 
 
 rm -f t.thresholds.bed.gz*
