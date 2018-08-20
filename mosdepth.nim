@@ -545,7 +545,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     if region != nil:
       chrom_region_distribution = new_seq[int64](1000)
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
-    if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil and not bed_regions.contains(target.name):
+    if skip_per_base and thresholds == nil and quantize == nil and bed_regions != nil or not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
     var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag)
