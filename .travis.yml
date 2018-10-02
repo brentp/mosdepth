@@ -1,12 +1,11 @@
 language: c
 env:
-  - BRANCH=master
+  - BRANCH=devel
 
 before_install:
-  - export PATH="nim-$BRANCH/bin/nim/bin:${PATH:+:$PATH}"
   - export LD_LIBRARY_PATH=./htslib/
-  - export PATH="nim-$BRANCH/bin${PATH:+:$PATH}"
-  - export PATH="$(pwd)/nimble/src:$PATH"
+  - export PATH="$TRAVIS_BUILD_DIR/nim-$BRANCH/bin:$PATH"
+  - export NIM_LIB_PREFIX=$TRAVIS_BUILD_DIR/nim-$BRANCH/
 
 install:
   - bash ./scripts/install.sh
@@ -15,10 +14,6 @@ script:
   - bash functional-tests.sh
   - nim c -d:release --cc:$CC mosdepth.nim
   - ./mosdepth -h
-cache:
-  directories:
-    - nim-master
-    - nim-devel
 branches:
   except:
     - gh-pages
