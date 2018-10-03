@@ -308,9 +308,9 @@ proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var kstr = kstring_t(l:0, m: 0, s: nil)
   var hf = hts_open(cstring(bed), "r")
   while hts_getline(hf, cint(10), addr kstr) > 0:
-    if ($kstr.s).startswith("track "):
+    if kstr.s[0] == 't' and ($kstr.s).startswith("track "):
       continue
-    if $kstr.s[0] == "#":
+    if kstr.s[0] == '#':
       continue
     var v = bed_line_to_region($kstr.s)
     if v == nil: continue
