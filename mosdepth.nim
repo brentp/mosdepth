@@ -297,7 +297,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
                 inc(arr[p.pos])
               pair_depth += p.value
               last_pos = p.pos
-            assert pair_depth == 0, $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
+            if pair_depth != 0: echo $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
     inc_coverage(rec.cigar, rec.start, arr)
   if not found:
     return -2
@@ -596,6 +596,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         var lookup = make_lookup(quantize)
         discard fquantize.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t" & lookup[0], target.name, 0, int(target.length))
       else:
+        if tid == -2: continue
         for p in gen_quantized(quantize, arr):
             discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
 
