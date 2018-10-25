@@ -16,7 +16,6 @@ try:
 except:
   precision = 2
 
-
 type
   pair = tuple[pos: int, value: int32]
   depth_t = tuple[start: int, stop: int, value: int]
@@ -221,7 +220,7 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[cstring]=(@[])): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -231,6 +230,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     tgt: hts.Target
     mate: Record
     seen = newTable[string, Record]()
+    has_read_groups = read_groups.len > 0
 
   var tid = if region != nil: get_tid(targets, region.chrom) else: -1
   if tid == -1:
@@ -248,6 +248,10 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
       continue
     if iflag != 0 and ((rec.flag and iflag) == 0):
       continue
+    if has_read_groups:
+      var t = tag[cstring](rec, "RG")
+      if t.isNone or not read_groups.contains(t.get):
+        continue
     if tgt.tid != rec.b.core.tid:
         raise newException(OSError, "expected only a single chromosome per query")
 
@@ -493,6 +497,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   var
     targets = bam.hdr.targets
     sub_targets = get_targets(targets, chrom)
+    read_groups: seq[cstring]
     rchrom : region_t
     arr: coverage_t
     prefix: string = $(args["<prefix>"])
@@ -511,6 +516,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   var region_distribution = new_seq[int64](1000)
   var global_distribution = new_seq[int64](1000)
 
+  if $args["--read-groups"] != "nil":
+    for r in ($args["--read-groups"]).split(','):
+      read_groups.add(r.cstring)
   var levels = get_min_levels(targets)
 
   var chrom_region_distribution, chrom_global_distribution: seq[int64]
@@ -548,7 +556,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     if skip_per_base and thresholds.len == 0 and quantize.len == 0 and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag)
+    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag, read_groups=read_groups)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
@@ -686,6 +694,7 @@ Other options:
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
+  -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
   -h --help                     show help
   """ % ["version", version, "env_fasta", env_fasta])
 
@@ -718,9 +727,14 @@ Other options:
     stderr.write_line("[mosdepth] error alignment file must be indexed")
     quit(2)
 
-  discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
-                         SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
-                         SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN)
+  if $args["--read-groups"] == "nil":
+    discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
+                           SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
+                           SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN)
+  else:
+    discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
+                           SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
+                           SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN, SamField.SAM_RGAUX)
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 

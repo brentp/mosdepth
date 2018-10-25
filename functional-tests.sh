@@ -87,10 +87,21 @@ assert_exit_code 1
 assert_in_stderr "skipping bad bed line:MT	2"
 assert_in_stderr "invalid integer: asdf"
 
+
+$exe -n t tests/ovl.bam
+run test_read_group $exe -n tt tests/ovl.bam -R GT04008021_119
+assert_equal $(cat tt.mosdepth.global.dist.txt | wc -l) 4 
+assert_equal $(diff tt.mosdepth.global.dist.txt t.mosdepth.global.dist.txt | wc -l) 0
+assert_exit_code 0
+
+run test_missing_read_group $exe -n tt tests/ovl.bam -R MISSING
+assert_equal "$(cat tt.mosdepth.global.dist.txt)" "MT	0	1.00
+total	0	1.00"
+
 run big_chrom $exe t tests/big.bam
 assert_exit_code 0
 
-
+rm -f tt.mosdepth.region.dist.txt
 rm -f t.mosdepth.region.dist.txt
 run empty_tids $exe t -n --thresholds 1,5 --by tests/empty-tids.bed tests/empty-tids.bam
 assert_exit_code 0
