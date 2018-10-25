@@ -50,6 +50,7 @@ Other options:
 
   -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
   -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
+  -x --fast-mode                dont look a cigar operations or correct mated overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold [default: 0]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
@@ -88,11 +89,15 @@ The distribution of depths will go to `sample-output.mosdepth.dist.txt`
 For 500-base windows
 
 ```
-mosdepth -n --by 500 sample.wgs $sample.wgs.bam
+mosdepth -n --fast-mode --by 500 sample.wgs $sample.wgs.cram
 ```
 
 `-n` means don't output per-base data, this will make `mosdepth`
 a bit faster as there is some cost to outputting that much text.
+
+--fast-mode avoids the extra calculations of mate pair overlap and cigar operations,
+and also allows htslib to extract less data from CRAM, providing a substantial speed
+improvement.
 
 ### Callable regions example
 

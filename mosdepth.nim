@@ -220,7 +220,7 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[cstring]=(@[])): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[cstring]=(@[]), fast_mode:bool=false): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -258,7 +258,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     # rec:   --------------
     # mate:             ------------
     # handle overlapping mate pairs.
-    if rec.flag.proper_pair:
+    if (not fast_mode) and rec.flag.proper_pair:
       if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and rec.start < rec.matepos:
         var rc = rec.copy()
         seen[rc.qname] = rc
@@ -302,7 +302,12 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
               pair_depth += p.value
               last_pos = p.pos
             if pair_depth != 0: echo $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
-    inc_coverage(rec.cigar, rec.start, arr)
+    if fast_mode:
+      arr[rec.start].inc
+      arr[rec.stop].dec
+    else:
+      inc_coverage(rec.cigar, rec.start, arr)
+
   if not found:
     return -2
   return tgt.tid
@@ -491,7 +496,7 @@ proc get_min_levels(targets: seq[Target]): int =
     s = s shl 3
 
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int], args: Table[string, docopt.Value]) =
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int], fast_mode:bool, args: Table[string, docopt.Value]) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -556,7 +561,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     if skip_per_base and thresholds.len == 0 and quantize.len == 0 and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag, read_groups=read_groups)
+    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
@@ -689,6 +694,7 @@ Other options:
 
   -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
   -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
+  -x --fast-mode                dont look a cigar operations or correct mated overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold [default: 0]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
@@ -703,6 +709,7 @@ Other options:
   var
     region: string
     thresholds: seq[int] = threshold_args($args["--thresholds"])
+    fast_mode:bool = args["--fast-mode"]
 
   if $args["--by"] != "nil":
     region = $args["--by"]
@@ -727,15 +734,15 @@ Other options:
     stderr.write_line("[mosdepth] error alignment file must be indexed")
     quit(2)
 
-  if $args["--read-groups"] == "nil":
-    discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
-                           SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
-                           SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN)
-  else:
-    discard bam.set_fields(SamField.SAM_QNAME, SamField.SAM_FLAG, SamField.SAM_RNAME,
-                           SamField.SAM_POS, SamField.SAM_MAPQ, SamField.SAM_CIGAR,
-                           SamField.SAM_RNEXT, SamField.SAM_PNEXT, SamField.SAM_TLEN, SamField.SAM_RGAUX)
+  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int
+  if not fast_mode:
+      opts = opts or SamField.SAM_QNAME.int or SamField.SAM_RNEXT.int or SamField.SAM_PNEXT.int #or SamField.SAM_TLEN.int
+
+  if $args["--read-groups"] != "nil":
+    opts = opts or SamField.SAM_RGAUX.int
+
+  discard bam.set_option(FormatOption.CRAM_OPT_REQUIRED_FIELDS, opts)
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, iflag, region, thresholds, args)
+  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args)
