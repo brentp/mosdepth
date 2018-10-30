@@ -694,7 +694,7 @@ Other options:
 
   -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
   -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
-  -x --fast-mode                dont look a cigar operations or correct mated overlaps (recommended for most use-cases).
+  -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold [default: 0]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
