@@ -27,6 +27,14 @@ assert_equal "$(zgrep ^MT t.per-base.bed.gz)" "MT	0	80	1
 MT	80	16569	0"
 assert_equal "$(zgrep -w ^1 t.per-base.bed.gz)" "1	0	249250621	0"
 
+run overlapFastMode $exe t --fast-mode tests/ovl.bam
+assert_equal "$(zgrep ^MT t.per-base.bed.gz)" "MT	0	6	1
+MT	6	42	2
+MT	42	80	1
+MT	80	16569	0"
+assert_exit_code 0
+
+
 run missing_chrom $exe -c nonexistent --by 20000 t tests/ovl.bam
 assert_in_stderr "[mosdepth] chromosome nonexistent not found"
 assert_exit_code 1
