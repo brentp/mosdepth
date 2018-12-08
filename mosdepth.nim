@@ -168,7 +168,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
     if tid != -1:
       if stop == 0:
         stop = targets[tid].length
-      for r in bam.queryi(tid, int(region.start), int(stop)):
+      for r in bam.query(tid, int(region.start), int(stop)):
         yield r
     else:
       stderr.write_line("[mosdepth]", region.chrom, " not found")

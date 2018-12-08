@@ -1,3 +1,7 @@
+0.2.5 (dev)
+=====
++ remove dependency on PCRE
+
 0.2.4
 =====
 + Add optional `--include-flag` to allow counting only reads that have some bits in the specified flag set.
