@@ -179,7 +179,7 @@ This is **useful for QC**.
 
 The `$prefix.mosdepth.global.dist.txt` file contains, a cumulative distribution indicating the
 proportion of total bases (or the proportion of the `--by` for `$prefix.mosdepth.region.dist.txt`) that were covered
-for at least a given coverage value. It does this for each chromosome, and for then
+for at least a given coverage value. It does this for each chromosome, and for the
 whole genome.
 
 Each row will indicate:
