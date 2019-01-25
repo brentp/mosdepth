@@ -140,7 +140,6 @@ It can also be installed with `brew` as `brew install brewsci/bio/mosdepth` or u
 docker pull quay.io/biocontainers/mosdepth:0.2.4--he527e40_0
 docker run -v /hostpath/:/opt/mount quay.io/biocontainers/mosdepth:0.2.4--he527e40_0 mosdepth -n --fast-mode -t 4 --by 1000 /opt/mount/sample /opt/mount/$bam
 ```
-`/hostpath/` is the path to the directory containing input file 
 
 Unless you want to install [nim](https://nim-lang.org), simply download the
 [binary from the releases](https://github.com/brentp/mosdepth/releases).
