@@ -135,7 +135,11 @@ This also forces the output to have 5 decimals of precision rather than the defa
 
 The simplest way is to [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
 
-It can also be installed with `brew` as `brew install brewsci/bio/mosdepth`
+It can also be installed with `brew` as `brew install brewsci/bio/mosdepth` or used via docker with quay:
+```
+docker pull quay.io/biocontainers/mosdepth:0.2.4--he527e40_0
+docker run -v /hostpath/:/opt/mount quay.io/biocontainers/mosdepth:0.2.4--he527e40_0 mosdepth -n --fast-mode -t 4 --by 1000 /opt/mount/sample $bam
+```
 
 Unless you want to install [nim](https://nim-lang.org), simply download the
 [binary from the releases](https://github.com/brentp/mosdepth/releases).
