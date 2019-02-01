@@ -347,7 +347,7 @@ iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[st
     else:
       if bed_regions.contains(target.name):
         for r in bed_regions[target.name]: yield r
-        bed_regions.del(target.name)
+        #bed_regions.del(target.name)
 
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
   if start > uint32(len(vals)):
@@ -618,9 +618,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     write_distribution("total", region_distribution, fh_region_dist)
     fh_region_dist.close()
 
-  if bed_regions != nil and chrom == nil:
-    for chrom, regions in bed_regions:
-      stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
+  #if bed_regions != nil and chrom == nil:
+  #  for chrom, regions in bed_regions:
+  #    stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
 
   if fregion != nil and close(fregion) != 0:
       stderr.write_line("[mosdepth] error writing region file\n")
