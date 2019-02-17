@@ -115,6 +115,12 @@ run empty_tids $exe t -n --thresholds 1,5 --by tests/empty-tids.bed tests/empty-
 assert_exit_code 0
 assert_equal $(grep -w HPV26 -c t.mosdepth.region.dist.txt) 0
 
+rm -f t.per-base.bed.gz*
+run overlappingPairs $exe t tests/overlapping-pairs.bam
+assert_equal "$(zcat t.per-base.bed.gz)" "1	0	565173	0
+1	565173	565253	1
+1	565253	249250621	0"
+assert_exit_code 0
 
 test -e $bam || exit
 
@@ -124,4 +130,3 @@ assert_exit_code 0
 
 run flag $exe -c chrM -F 4 --by 20000 tx /data/human/NA12878.subset.bam
 assert_exit_code 0
-
