@@ -259,7 +259,10 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     # mate:             ------------
     # handle overlapping mate pairs.
     if (not fast_mode) and rec.flag.proper_pair:
-      if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and rec.start < rec.matepos:
+      if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and 
+        # First case is partial overlap, second case is complete overlap
+        # For complete overlap we must check if the mate was already seen or not yet
+        ((rec.start < rec.matepos) or (rec.start == rec.mate_pos and not seen.hasKey(rec.qname))):
         var rc = rec.copy()
         seen[rc.qname] = rc
       else:
