@@ -1,6 +1,7 @@
 0.2.5 (dev)
 =====
 + remove dependency on PCRE
++ don't double count fully overlapping reads (thanks to @jaudoux for the fix in #73)
 
 0.2.4
 =====
