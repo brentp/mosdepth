@@ -258,7 +258,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     # rec:   --------------
     # mate:             ------------
     # handle overlapping mate pairs.
-    if (not fast_mode) and rec.flag.proper_pair:
+    if (not fast_mode) and rec.flag.proper_pair and (not rec.flag.supplementary):
       if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and 
         # First case is partial overlap, second case is complete overlap
         # For complete overlap we must check if the mate was already seen or not yet
@@ -285,7 +285,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
             # 4623241 4623264
             # chr1 4623171 69M1D23M9S (pos: 4623171, value: 1)(pos: 4623241, value: 1)(pos: 4623240, value: -1)(pos: 4623264, value: -1)
             # chr1 4623223 4S97M (pos: 4623223, value: 1)(pos: 4623320, value: -1)
-            assert rec.start < mate.stop
+            assert (rec.start <= mate.stop)
             # each element will have a .value of 1 for start and -1 for end.
 
             var ses = sequtils.to_seq(gen_start_ends(rec.cigar, rec.start))
