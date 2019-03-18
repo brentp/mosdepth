@@ -125,7 +125,7 @@ iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s {.inline.} =
         yield (last_pos, pos, lookup[last_quantized])
       last_quantized = quantized
       last_pos = pos
-    if last_quantized != -1 and last_pos < arr.high:
+    if last_quantized != -1 and last_pos < arr.high and last_quantized < len(lookup):
       yield (last_pos, len(arr)-1, lookup[last_quantized])
 
 proc pair_sort(a, b: pair): int =
@@ -667,7 +667,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.5"
+  let version = "mosdepth 0.2.6"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version
