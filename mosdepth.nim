@@ -7,9 +7,16 @@ import strutils as su
 import os
 import docopt
 import times
+import stats
+import math
 
+var 
+  precision: int
+  genome_stat: RunningStat
+  chrom_stat: RunningStat
+  genome_counts = initCountTable[int]()
+  chrom_counts = initCountTable[int]()
 
-var precision: int
 try:
   var tmp = getEnv("MOSDEPTH_PRECISION")
   precision = parse_int(tmp)
@@ -28,6 +35,33 @@ type
 
   coverage_t = seq[int32]
 
+proc median(counts: var CountTable): float =
+    # Calculate median from a count table
+    var keyset: seq[int]
+    var 
+        total: int
+        count_up: float
+    for i in keys(counts):
+        keyset.add(i)
+        total += counts[i]
+    var half = total.float / 2.0
+    var is_even = (half mod 1 == 0)
+    sort(keyset, system.cmp[int])
+    for i in keyset:
+        if (count_up + counts[i].float) < half:
+            count_up = count_up + counts[i].float
+        elif is_even and (count_up + counts[i].float) == half:
+            # This should happen rarely, but median w/ even set is avg.
+            return (counts[i] + counts[i+1]).float / 2.0
+        else:
+            return i.float
+
+proc `+`*(a, b: var CountTable[int]): CountTable[int] = 
+    # Add count tables together
+    for i, v in pairs(b):
+        a.inc(i, v)
+    return a
+
 proc `$`*(r: region_t): string =
   if r == nil:
     return ""
@@ -40,6 +74,9 @@ proc to_coverage(c: var coverage_t) =
   # to_coverage converts from an array of start/end inc/decs to actual coverage.
   var d = int32(0)
   for i, v in pairs(c):
+    # Tally coverage
+    chrom_stat.push(d)
+    chrom_counts.inc(d)
     d += v
     c[i] = d
 
@@ -404,6 +441,23 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   # reverse it back because we use to update the full genome
   reverse(d)
 
+proc write_summary(chrom: string, stat: var RunningStat, count: var CountTable[int], header: bool, fh:File) =
+    if header:
+        fh.write_line ["contig",
+              "bases",
+              "mean",
+              "median",
+              "sd",
+              "min",
+              "max"].join("\t")
+    fh.write_line [chrom,
+          $stat.n,
+          $stat.mean.format_float(ffDecimal, precision=precision),
+          $count.median,
+          $stat.standardDeviation.format_float(ffDecimal, precision=precision),
+          $stat.min.int,
+          $stat.max.int].join("\t")
+
 proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
   if r == nil:
     return targets
@@ -519,7 +573,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     fregion: BGZI
     fh_global_dist:File
     fh_region_dist:File
+    fh_global_summary:File
+    fh_region_summary:File
+    fh_summary:File
     quantize = get_quantize_args($args["--quantize"])
+    summary_header_out = true
 
   var region_distribution = new_seq[int64](1000)
   var global_distribution = new_seq[int64](1000)
@@ -542,6 +600,12 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   if thresholds.len != 0:
     fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
     fthresholds.write_header(thresholds)
+
+  if not open(fh_global_summary, prefix & ".mosdepth.global.summary.txt", fmWrite):
+    stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.global.summary.txt")
+
+  if not open(fh_region_summary, prefix & ".mosdepth.region.summary.txt", fmWrite):
+    stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.region.summary.txt")
 
   if not open(fh_global_dist, prefix & ".mosdepth.global.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.global.dist.txt")
@@ -588,6 +652,14 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
           chrom_region_distribution.inc(arr, r.start, r.stop)
         write_thresholds(fthresholds, tid, arr, thresholds, r)
     if tid != -2:
+      # Summary
+      genome_stat += chrom_stat
+      genome_counts = genome_counts + chrom_counts
+      write_summary(target.name, chrom_stat, chrom_counts, summary_header_out, fh_global_summary)
+      summary_header_out = false
+      chrom_counts.clear()
+      chrom_stat.clear()
+
       chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr) - 1))
 
     # write the distribution for each chrom
@@ -615,6 +687,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         if tid == -2: continue
         for p in gen_quantized(quantize, arr):
             discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
+
+  # Write global summary
+  write_summary("total", genome_stat, genome_counts, header=false, fh_global_summary)
 
   write_distribution("total", global_distribution, fh_global_dist)
   if region != "":
