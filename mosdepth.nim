@@ -451,7 +451,6 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   reverse(d)
 
 proc write_summary(chrom: string, stat: var RunningStat, count: var CountTable[int], fh:File) =
-    echo summary_header_out, " <-- SUMMARY HEADER OUT"
     if summary_header_out:
         fh.write_line ["contig",
               "bases",
