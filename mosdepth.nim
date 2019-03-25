@@ -13,14 +13,6 @@ import math
 var 
   precision: int
   summary_header_out = true
-  genome_stat: RunningStat
-  region_stat: RunningStat # region is only by chrom
-  region_total_stat: RunningStat
-  chrom_stat: RunningStat
-  genome_counts = initCountTable[int]()
-  region_counts = initCountTable[int]()
-  region_total_counts = initCountTable[int]()
-  chrom_counts = initCountTable[int]()
 
 try:
   var tmp = getEnv("MOSDEPTH_PRECISION")
@@ -40,27 +32,6 @@ type
 
   coverage_t = seq[int32]
 
-proc median(counts: var CountTable): float =
-    # Calculate median from a count table
-    var keyset: seq[int]
-    var 
-        total: int
-        count_up: float
-    for i in keys(counts):
-        keyset.add(i)
-        total += counts[i]
-    var half = total.float / 2.0
-    var is_even = (half mod 1 == 0)
-    sort(keyset, system.cmp[int])
-    for i in keyset:
-        if (count_up + counts[i].float) < half:
-            count_up = count_up + counts[i].float
-        elif is_even and (count_up + counts[i].float) == half:
-            # This should happen rarely, but median w/ even set is avg.
-            return (counts[i] + counts[i+1]).float / 2.0
-        else:
-            return i.float
-
 proc `+`*(a, b: var CountTable[int]): CountTable[int] = 
     # Add count tables together
     for i, v in pairs(b):
@@ -79,11 +50,13 @@ proc to_coverage(c: var coverage_t) =
   # to_coverage converts from an array of start/end inc/decs to actual coverage.
   var d = int32(0)
   for i, v in pairs(c):
-    # Tally coverage
-    chrom_stat.push(d)
-    chrom_counts.inc(d)
     d += v
     c[i] = d
+
+proc summarize_depth(arr: var coverage_t, depth_stat: var RunningStat): RunningStat {.inline.} =
+    for i in arr:
+        depth_stat.push(i)
+    return depth_stat
 
 iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # given `arr` with values in each index indicating the number of reads
@@ -395,16 +368,19 @@ iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[st
         bed_regions.del(target.name)
 
 proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
-  # Calculates mean coverage within an interval,
-  # Also tallies region depths similar as `to_coverage`
+  # Calculates mean coverage within an interval
   if start > uint32(len(vals)):
     return 0
   var L = float64(stop - start)
   for i in start..<stop:
     if int(i) == len(vals): break
-    region_stat.push(vals[int(i)])
-    region_counts.inc(vals[int(i)])
     result += float64(vals[int(i)]) / L
+
+
+proc interval_summary(vals: coverage_t, start:uint32, stop:uint32, depth_stat: var RunningStat) {.inline.} =
+    # Adds to running stats within a given interval
+    for i in start..<stop:
+        depth_stat.push(int(vals[int(i)]))
 
 const MAX_COVERAGE = int32(400000)
 
@@ -450,7 +426,7 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   # reverse it back because we use to update the full genome
   reverse(d)
 
-proc write_summary(chrom: string, stat: var RunningStat, count: var CountTable[int], fh:File) =
+proc write_summary(chrom: string, stat: var RunningStat, fh:File) =
     if summary_header_out:
         fh.write_line ["contig",
               "bases",
@@ -463,7 +439,7 @@ proc write_summary(chrom: string, stat: var RunningStat, count: var CountTable[i
     fh.write_line [chrom,
           $stat.n,
           $stat.mean.format_float(ffDecimal, precision=precision),
-          $count.median,
+          "placeholder:median",
           $stat.standardDeviation.format_float(ffDecimal, precision=precision),
           $stat.min.int,
           $stat.max.int].join("\t")
@@ -576,6 +552,10 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     skip_per_base = args["--no-per-base"]
     window: uint32 = 0
     bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
+    global_stat: RunningStat
+    chrom_stat: RunningStat
+    region_stat: RunningStat
+    region_chrom_stat: RunningStat
     fbase: BGZI
     #fbase: BGZ
     fquantize: BGZI
@@ -644,6 +624,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       for r in region_gen(window, target, bed_regions):
         if tid != -2:
           me = imean(arr, r.start, r.stop)
+          interval_summary(arr, r.start, r.stop, region_chrom_stat)
         var m = su.format_float(me, ffDecimal, precision=precision)
 
         if r.name == "":
@@ -657,20 +638,17 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         write_thresholds(fthresholds, tid, arr, thresholds, r)
     if tid != -2:
       # Summary by chrom
-      genome_stat += chrom_stat
-      genome_counts = genome_counts + chrom_counts
-      write_summary(target.name, chrom_stat, chrom_counts, fh_summary)
-      chrom_counts.clear()
-      chrom_stat.clear()
       chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr) - 1))
 
       # summary by region
-      write_summary(target.name & "_region", region_stat, region_counts, fh_summary)
-      region_total_counts = region_total_counts + region_counts
-      region_total_stat = region_total_stat + region_stat
-      region_counts.clear()
-      region_stat.clear()
-
+      global_stat = global_stat + summarize_depth(arr, chrom_stat)
+      write_summary(target.name, chrom_stat, fh_summary)
+      chrom_stat.clear()
+      if region != "":
+        write_summary(target.name & "_region", region_chrom_stat, fh_summary)
+        region_stat = region_stat + region_chrom_stat
+        region_chrom_stat.clear()
+    
     # write the distribution for each chrom
     write_distribution(target.name, chrom_global_distribution, fh_global_dist)
     if region != "":
@@ -698,9 +676,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
             discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
 
   # Write global summary
-  write_summary("total", genome_stat, genome_counts, fh_summary)
+  write_summary("total", global_stat, fh_summary)
   if region != "":
-    write_summary("total_region", region_total_stat, region_total_counts, fh_summary)
+    write_summary("total_region", region_stat, fh_summary)
 
 
   write_distribution("total", global_distribution, fh_global_dist)
