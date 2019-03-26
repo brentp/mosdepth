@@ -647,7 +647,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       chrom_stat = newDepthStat(arr)
       global_stat = global_stat + chrom_stat
       write_summary(target.name, chrom_stat, fh_summary)
-      write_summary(target.name & "_region", chrom_region_stat, fh_summary)
+      if region != "":
+        write_summary(target.name & "_region", chrom_region_stat, fh_summary)
       global_region_stat = global_region_stat + chrom_region_stat
       chrom_region_stat.clear()
 
