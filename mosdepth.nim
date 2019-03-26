@@ -36,9 +36,13 @@ type
 
   coverage_t = seq[int32]
 
+proc sum64(x: seq[int32]): uint64 =
+  # Required for summing up cumulative depth
+  for i in items(x): result = result + i.uint64
+
 proc newDepthStat(d: coverage_t): depth_stat =
-  return depth_stat(cum_length: len(d).int,
-                    cum_depth: sum(d).uint64,
+  return depth_stat(cum_length: len(d),
+                    cum_depth: sum64(d),
                     min_depth: min(d).uint32,
                     max_depth: max(d).uint32)
 
@@ -431,7 +435,8 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   reverse(d)
 
 proc write_summary(region: string, stat: depth_stat, fh:File) =
-  let mean_depth = float(stat.cum_depth) / float(stat.cum_length)
+  let mean_depth = float64(stat.cum_depth) / float64(stat.cum_length)
+  let stat_min = if stat.min_depth == uint32.high: 0.uint32 else: stat.min_depth
   if output_summary_header:
     fh.write_line ["chrom",
           "length",
@@ -441,12 +446,11 @@ proc write_summary(region: string, stat: depth_stat, fh:File) =
           "max"].join("\t")
     output_summary_header = false
   fh.write_line [region,
-        $stat.cum_length,
-        $stat.cum_depth,
-        $mean_depth.format_float(ffDecimal, precision=precision),
-        $stat.min_depth,
-        $stat.max_depth
-  ].join("\t")
+                 $stat.cum_length,
+                 $stat.cum_depth,
+                 $mean_depth.format_float(ffDecimal, precision=precision),
+                 $stat_min,
+                 $stat.max_depth].join("\t")
 
 proc get_targets(targets: seq[hts.Target], r: region_t): seq[hts.Target] =
   if r == nil:
@@ -733,7 +737,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.6"
+  let version = "mosdepth 0.2.7"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version
