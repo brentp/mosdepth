@@ -29,7 +29,7 @@ type
     stop: uint32
     name: string
   depth_stat = object
-    cum_length: uint32
+    cum_length: int
     cum_depth: uint64
     min_depth: uint32
     max_depth: uint32
@@ -37,7 +37,7 @@ type
   coverage_t = seq[int32]
 
 proc newDepthStat(d: coverage_t): depth_stat =
-  return depth_stat(cum_length: len(d).uint32,
+  return depth_stat(cum_length: len(d).int,
                     cum_depth: sum(d).uint64,
                     min_depth: min(d).uint32,
                     max_depth: max(d).uint32)
