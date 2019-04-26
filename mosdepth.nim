@@ -25,6 +25,9 @@ type
     start: uint32
     stop: uint32
     name: string
+    score: string
+    strand: string
+    other_fields = string
 
   coverage_t = seq[int32]
 
@@ -175,8 +178,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
 
 proc bed_line_to_region(line: string): region_t =
    var
-     cse = line.strip().split('\t', 5)
-
+     cse = line.strip().split('\t',6)
    if len(cse) < 3:
      stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
      return nil
@@ -186,6 +188,12 @@ proc bed_line_to_region(line: string): region_t =
      reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
    if len(cse) > 3:
      reg.name = cse[3]
+     if len(cse) > 4:
+       reg.score = cse[4]
+         if len(cse) > 5:
+           reg.strand = cse[5]
+           if len(cse) >= 6:
+             reg.other_fields = cse[6]
    return reg
 
 proc region_line_to_region(region: string): region_t =
@@ -577,11 +585,18 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         if tid != -2:
           me = imean(arr, r.start, r.stop)
         var m = su.format_float(me, ffDecimal, precision=precision)
-
-        if r.name == "":
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+        var target_region_start = intToStr(int(r.start))
+        var target_region_stop = intToStr(int(r.stop))
+        var target_region_name = r.name
+        if target_region_name == "":
+          target_region_name = target.name & ":" & target_region_start & "-" & target_region_stop
+        if r.strand == "":
+          line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m)
         else:
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
+          if r.other_fields == "":
+            line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m & "\t" & r.strand)
+          else:
+            line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m & "\t" & r.strand & "\t" & r.other_fields)
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
         if tid != -2:
