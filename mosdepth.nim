@@ -27,7 +27,7 @@ type
     name: string
     score: string
     strand: string
-    other_fields = string
+    other_fields: string
 
   coverage_t = seq[int32]
 
