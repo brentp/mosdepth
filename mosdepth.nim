@@ -25,6 +25,7 @@ type
     start: uint32
     stop: uint32
     name: string
+    other_fields: string
 
   coverage_t = seq[int32]
 
@@ -174,19 +175,20 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
       stderr.write_line("[mosdepth]", region.chrom, " not found")
 
 proc bed_line_to_region(line: string): region_t =
-   var
-     cse = line.strip().split('\t', 5)
-
-   if len(cse) < 3:
-     stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
-     return nil
-   var
-     s = S.parse_int(cse[1])
-     e = S.parse_int(cse[2])
-     reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
-   if len(cse) > 3:
-     reg.name = cse[3]
-   return reg
+  var
+    cse = line.strip().split('\t')
+  if len(cse) < 3:
+    stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
+    return nil
+  var
+    s = S.parse_int(cse[1])
+    e = S.parse_int(cse[2])
+    reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
+  if len(cse) > 3:
+    reg.name = cse[3]
+  if len(cse) >= 5:
+    reg.other_fields = join(cse[5..high(cse)], "\t")
+  return reg
 
 proc region_line_to_region(region: string): region_t =
   if region == "" or region == "nil":
@@ -577,11 +579,15 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         if tid != -2:
           me = imean(arr, r.start, r.stop)
         var m = su.format_float(me, ffDecimal, precision=precision)
-
+        var target_region_start = intToStr(int(r.start))
+        var target_region_stop = intToStr(int(r.stop))
+        var target_region_name = r.name
         if r.name == "":
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+          line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & m)
+        elif r.other_fields == "":
+          line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m)
         else:
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
+          line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m & "\t" & r.other_fields)
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
         if tid != -2:
@@ -667,7 +673,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.6"
+  let version = "mosdepth 0.2.7"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version
