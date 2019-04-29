@@ -90,7 +90,7 @@ assert_exit_code 0
 run big_window $exe t tests/ovl.bam --by 100000000
 assert_exit_code 0
 assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
-assert_equal "MT	0	16569	0.00" "$(zgrep ^MT t.regions.bed.gz)"
+assert_equal "MT	0	16569	MT:0-16569	0.00" "$(zgrep ^MT t.regions.bed.gz)"
 
 unset MOSDEPTH_Q0
 unset MOSDEPTH_Q1
