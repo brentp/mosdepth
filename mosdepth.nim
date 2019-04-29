@@ -584,7 +584,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         var target_region_name = r.name
         if r.name == "":
           line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & m)
-        if r.other_fields == "":
+        elif r.other_fields == "":
           line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m)
         else:
           line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m & "\t" & r.other_fields)
