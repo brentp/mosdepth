@@ -187,7 +187,7 @@ proc bed_line_to_region(line: string): region_t =
     reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
   if len(cse) > 3:
     reg.name = cse[3]
-    if len(cse) > 4:
+    if len(cse) >= 4:
       reg.score = cse[4]
       if len(cse) >= 5:
         reg.other_fields = cse[5]
