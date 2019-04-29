@@ -585,7 +585,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         var target_region_start = intToStr(int(r.start))
         var target_region_stop = intToStr(int(r.stop))
         var target_region_name = r.name
-        if target_region_name == "":
+        if r.name == "":
           target_region_name = target.name & ":" & target_region_start & "-" & target_region_stop
         if r.other_fields == "":
           line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m)
@@ -676,7 +676,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.6"
+  let version = "mosdepth 0.2.7"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version

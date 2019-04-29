@@ -1,3 +1,8 @@
+0.2.7 
+
++ Improvement #84 Making sure bed file output always outputs count as the socre column (6 column), independently is input bed region has 3, 4 or more columns
+  retaining the extra columns from the input file. (Only score column gets overwritten with counts)
+
 0.2.6 (dev)
 ===========
 + fix #54. for quantize
