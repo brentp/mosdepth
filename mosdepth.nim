@@ -583,7 +583,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         var target_region_stop = intToStr(int(r.stop))
         var target_region_name = r.name
         if r.name == "":
-          target_region_name = target.name & ":" & target_region_start & "-" & target_region_stop
+          line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & m)
         if r.other_fields == "":
           line.add(starget & target_region_start & "\t" & target_region_stop & "\t" & target_region_name & "\t" & m)
         else:

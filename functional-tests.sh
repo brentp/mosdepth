@@ -65,7 +65,7 @@ assert_equal $(zcat t.regions.bed.gz | wc -l) 2
 
 run bed3_n_columns $exe --by tests/bed3.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 5
+assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 4
 
 run bed4_n_columns $exe --by tests/bed4.bed t tests/ovl.bam
 assert_exit_code 0
@@ -90,7 +90,7 @@ assert_exit_code 0
 run big_window $exe t tests/ovl.bam --by 100000000
 assert_exit_code 0
 assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
-assert_equal "MT	0	16569	MT:0-16569	0.00" "$(zgrep ^MT t.regions.bed.gz)"
+assert_equal "MT	0	16569	0.00" "$(zgrep ^MT t.regions.bed.gz)"
 
 unset MOSDEPTH_Q0
 unset MOSDEPTH_Q1

@@ -1,7 +1,9 @@
 0.2.7 
 
-+ Improvement #84 Making sure bed file output always outputs count as the socre column (6 column), independently is input bed region has 3, 4 or more columns
++ Improvement #81 Making sure bed file output always outputs count as the score column (5th column), 
+  independently if input bed region has 4 or more columns
   retaining the extra columns from the input file. (Only score column gets overwritten with counts)
+  when input bed file has only the bare minumum 3 columns,  output contains 4 columns with depth in 4th column (bedgraph format)
 
 0.2.6 (dev)
 ===========
