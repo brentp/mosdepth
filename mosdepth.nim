@@ -25,7 +25,6 @@ type
     start: uint32
     stop: uint32
     name: string
-    score: string
     other_fields: string
 
   coverage_t = seq[int32]
@@ -177,7 +176,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
 
 proc bed_line_to_region(line: string): region_t =
   var
-    cse = line.strip().split('\t',6)
+    cse = line.strip().split('\t')
   if len(cse) < 3:
     stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
     return nil
@@ -187,10 +186,8 @@ proc bed_line_to_region(line: string): region_t =
     reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
   if len(cse) > 3:
     reg.name = cse[3]
-    if len(cse) >= 4:
-      reg.score = cse[4]
-      if len(cse) >= 5:
-        reg.other_fields = cse[5]
+  if len(cse) >= 5:
+    reg.other_fields = join(cse[5..high(cse)], "\t")
   return reg
 
 proc region_line_to_region(region: string): region_t =
