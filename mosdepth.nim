@@ -177,7 +177,7 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
 
 proc bed_line_to_region(line: string): region_t =
   var
-    cse = line.strip().split('\t',5)
+    cse = line.strip().split('\t',6)
   if len(cse) < 3:
     stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
     return nil
