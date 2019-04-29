@@ -190,10 +190,10 @@ proc bed_line_to_region(line: string): region_t =
      reg.name = cse[3]
      if len(cse) > 4:
        reg.score = cse[4]
-         if len(cse) > 5:
-           reg.strand = cse[5]
-           if len(cse) >= 6:
-             reg.other_fields = cse[6]
+       if len(cse) > 5:
+         reg.strand = cse[5]
+         if len(cse) >= 6:
+           reg.other_fields = cse[6]
    return reg
 
 proc region_line_to_region(region: string): region_t =
