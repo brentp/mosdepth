@@ -65,23 +65,23 @@ assert_equal $(zcat t.regions.bed.gz | wc -l) 2
 
 run bed3_n_columns $exe --by tests/bed3.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq | wc -l) 5
+assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 5
 
 run bed4_n_columns $exe --by tests/bed4.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq | wc -l) 5
+assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 5
 
 run bed5_n_columns $exe --by tests/bed5.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq | wc -l) 5
+assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 5
 
 run bed6_n_columns $exe --by tests/bed6.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq | wc -l) 6
+assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 6
 
 run bed12_n_columns $exe --by tests/bed12.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq | wc -l) 12
+assert_equal $(zcat t.regions.bed.gz | awk 'BEGIN{FS="\t"}{print NF}' | sort | uniq) 12
 
 # theres data left in the bam but the region tree is empty...
 run missing_bed_chrom $exe --by tests/missing.bed t tests/ovl.bam
