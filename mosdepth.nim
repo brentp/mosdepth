@@ -439,11 +439,11 @@ proc write_summary(region: string, stat: depth_stat, fh:File) =
   let stat_min = if stat.min_depth == uint32.high: 0.uint32 else: stat.min_depth
   if output_summary_header:
     fh.write_line ["chrom",
-          "length",
-          "bases",
-          "mean",
-          "min",
-          "max"].join("\t")
+                   "length",
+                   "bases",
+                   "mean",
+                   "min",
+                   "max"].join("\t")
     output_summary_header = false
   fh.write_line [region,
                  $stat.cum_length,
