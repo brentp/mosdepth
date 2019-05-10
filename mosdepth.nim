@@ -41,7 +41,7 @@ proc sum64(x: seq[int32]): uint64 =
   for i in items(x): result = result + i.uint64
 
 proc newDepthStat(d: coverage_t): depth_stat =
-  return depth_stat(cum_length: len(d),
+  return depth_stat(cum_length: len(d) - 1,
                     cum_depth: sum64(d),
                     min_depth: min(d).uint32,
                     max_depth: max(d).uint32)
@@ -435,7 +435,11 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   reverse(d)
 
 proc write_summary(region: string, stat: depth_stat, fh:File) =
-  let mean_depth = float64(stat.cum_depth) / float64(stat.cum_length)
+  var mean_depth: float64
+  if stat.cum_length > 0:
+    mean_depth = float64(stat.cum_depth) / float64(stat.cum_length)
+  else:
+    mean_depth = 0.float64
   let stat_min = if stat.min_depth == uint32.high: 0.uint32 else: stat.min_depth
   if output_summary_header:
     fh.write_line ["chrom",
