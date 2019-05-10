@@ -41,7 +41,7 @@ proc sum64(x: seq[int32]): uint64 =
   for i in items(x): result = result + i.uint64
 
 proc newDepthStat(d: coverage_t): depth_stat =
-  return depth_stat(cum_length: len(d) - 1,
+  return depth_stat(cum_length: len(d),
                     cum_depth: sum64(d),
                     min_depth: min(d).uint32,
                     max_depth: max(d).uint32)
@@ -652,7 +652,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         write_thresholds(fthresholds, tid, arr, thresholds, r)
     if tid != -2:
       chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr) - 1))
-      chrom_stat = newDepthStat(arr)
+      chrom_stat = newDepthStat(arr[0..<len(arr)-1])
       global_stat = global_stat + chrom_stat
       write_summary(target.name, chrom_stat, fh_summary)
       if region != "":
@@ -751,6 +751,7 @@ when(isMainModule):
 Arguments:
 
   <prefix>       outputs: `{prefix}.mosdepth.dist.txt`
+                          `{prefix}.mosdepth.summary.txt`
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
                           `{prefix}.quantized.bed.gz` (if --quantize is specified)

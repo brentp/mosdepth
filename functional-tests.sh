@@ -26,12 +26,15 @@ assert_exit_code 0
 assert_equal "$(zgrep ^MT t.per-base.bed.gz)" "MT	0	80	1
 MT	80	16569	0"
 assert_equal "$(zgrep -w ^1 t.per-base.bed.gz)" "1	0	249250621	0"
+assert_equal "$(cat t.mosdepth.summary.txt | grep 'MT')" "MT	16569	80	0.00	0	1"
 
 run overlapFastMode $exe t --fast-mode tests/ovl.bam
 assert_equal "$(zgrep ^MT t.per-base.bed.gz)" "MT	0	6	1
 MT	6	42	2
 MT	42	80	1
 MT	80	16569	0"
+assert_equal $(cat t.mosdepth.summary.txt  | cut -f 2 | tail -n+2 | sort | uniq) 16569
+assert_equal $(cat t.mosdepth.summary.txt  | cut -f 4 | tail -n+2 | sort | uniq) "0.01"
 assert_exit_code 0
 
 
@@ -85,6 +88,9 @@ assert_exit_code 0
 assert_equal "$(zgrep -w ^MT t.quantized.bed.gz)" "MT	0	80	BBB
 MT	80	16569	AAA"
 assert_equal "$(head -1 t.mosdepth.global.dist.txt)" "MT	1	0.0048283"
+assert_equal "$(tail -n +2 t.mosdepth.summary.txt | head -1)" "MT	16569	80	0.0048283	0	1"
+assert_equal "$(tail -n 1 t.mosdepth.summary.txt)" "total	16569	80	0.0048283	0	1"
+
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0
@@ -107,6 +113,10 @@ assert_equal "$(cat tt.mosdepth.global.dist.txt)" "MT	0	1.00
 total	0	1.00"
 
 run big_chrom $exe t tests/big.bam
+assert_equal $(cat t.mosdepth.summary.txt | wc -l) 3
+assert_equal $(cat t.mosdepth.summary.txt  | cut -f 3 | tail -n +2 | uniq) 15
+assert_equal $(cat t.mosdepth.summary.txt  | cut -f 5 | tail -n +2 | uniq) 0
+assert_equal $(cat t.mosdepth.summary.txt  | cut -f 6 | tail -n +2 | uniq) 1
 assert_exit_code 0
 
 rm -f tt.mosdepth.region.dist.txt
