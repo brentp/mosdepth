@@ -29,7 +29,8 @@ mosdepth 0.2.3
 
 Arguments:
 
-  <prefix>       outputs: `{prefix}.mosdepth.global.dist.txt` (NOTE!!! this is changed in version 0.2.2)
+  <prefix>       outputs: `{prefix}.mosdepth.global.dist.txt`
+                          `{prefix}.mosdepth.summary.txt`
                           `{prefix}.mosdepth.region.dist.txt` (if --by is specified)
                           `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)

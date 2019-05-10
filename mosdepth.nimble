@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.7"
+version       = "0.2.6"
 author        = "Brent Pedersen"
 description   = "fast depth"
 license       = "MIT"

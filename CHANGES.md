@@ -1,6 +1,7 @@
 0.2.6 (dev)
 ===========
 + fix #54. for quantize
++ add summary file output (implemented by @danielecook)
 
 0.2.5
 =====
