@@ -12,6 +12,7 @@ install:
 script:
   - nimble test
   - bash functional-tests.sh
+  - nim c -r depthstat.nim
   - nim c -d:release --cc:$CC mosdepth.nim
   - ./mosdepth -h
 branches:

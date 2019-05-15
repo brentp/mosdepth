@@ -355,13 +355,20 @@ iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[st
         for r in bed_regions[target.name]: yield r
         bed_regions.del(target.name)
 
-proc imean(vals: coverage_t, start:uint32, stop:uint32): float64 =
+proc imean(vals: coverage_t, start:uint32, stop:uint32, ms:var CountStat[uint32]): float64 =
   if start > uint32(len(vals)):
     return 0
-  var L = float64(stop - start)
-  for i in start..<stop:
-    if int(i) == len(vals): break
-    result += float64(vals[int(i)]) / L
+
+  if ms.len != 0:
+    ms.clear()
+    for i in start..<min(stop, uint32(len(vals))):
+      ms.add(vals[i])
+    return ms.median.float64
+
+  else:
+    var L = float64(stop - start)
+    for i in start..<min(stop, uint32(len(vals))):
+      result += float64(vals[int(i)]) / L
 
 const MAX_COVERAGE = int32(400000)
 
@@ -524,7 +531,8 @@ proc get_min_levels(targets: seq[Target]): int =
     s = s shl 3
 
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int], fast_mode:bool, args: Table[string, docopt.Value]) =
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
+          fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -591,6 +599,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     else:
       bed_regions = bed_to_table(region)
 
+  var cs = initCountStat[uint32](size=if use_median: 65536 else: 0)
+
   for target in sub_targets:
     chrom_global_distribution = new_seq[int64](1000)
     if region != "":
@@ -610,7 +620,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       var me = 0'f64
       for r in region_gen(window, target, bed_regions):
         if tid != -2:
-          me = imean(arr, r.start, r.stop)
+          me = imean(arr, r.start, r.stop, cs)
           chrom_region_stat = chrom_region_stat + newDepthStat(arr[r.start..<r.stop])
         var m = su.format_float(me, ffDecimal, precision=precision)
 
@@ -751,6 +761,7 @@ Other options:
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
+  -m --use-median               output median of each region (in --by) instead of mean.
   -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
   -h --help                     show help
   """ % ["version", version, "env_fasta", env_fasta])
@@ -761,6 +772,7 @@ Other options:
     region: string
     thresholds: seq[int] = threshold_args($args["--thresholds"])
     fast_mode:bool = args["--fast-mode"]
+    use_median:bool = args["--use-median"]
 
   if $args["--by"] != "nil":
     region = $args["--by"]
@@ -796,4 +808,4 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args)
+  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median)

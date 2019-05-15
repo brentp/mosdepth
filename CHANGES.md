@@ -2,6 +2,7 @@
 ===========
 + fix #54. for quantize
 + add summary file output (implemented by @danielecook)
++ add `--median` flag to output the median for each region from --by (default is to use mean).
 
 0.2.5
 =====
