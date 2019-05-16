@@ -17,6 +17,8 @@ proc add*[T](c: var CountStat, value: T) {.inline.} =
   c.n.inc
   if value.int > c.counts.high.int:
     c.counts[c.counts.high].inc
+  elif value < 0:
+    raise newException(IndexError, "error setting negative depth value:" & $value)
   else:
     c.counts[value].inc
 
@@ -55,8 +57,8 @@ proc clear*(ds: var depth_stat) =
 proc `+`*(a, b: depth_stat): depth_stat =
     return depth_stat(cum_length: a.cum_length + b.cum_length,
                       cum_depth: a.cum_depth + b.cum_depth,
-                      min_depth: min([a.min_depth, b.min_depth]),
-                      max_depth: max([a.max_depth, b.max_depth]))
+                      min_depth: min(a.min_depth, b.min_depth),
+                      max_depth: max(a.max_depth, b.max_depth))
 
 when isMainModule:
   import unittest

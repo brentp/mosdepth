@@ -187,6 +187,7 @@ proc bed_line_to_region(line: string): region_t =
      s = S.parse_int(cse[1])
      e = S.parse_int(cse[2])
      reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
+   doAssert s <= e, "[slivar] ERROR: start > end in bed line:" & line
    if len(cse) > 3:
      reg.name = cse[3]
    return reg
@@ -288,7 +289,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
             # 4623241 4623264
             # chr1 4623171 69M1D23M9S (pos: 4623171, value: 1)(pos: 4623241, value: 1)(pos: 4623240, value: -1)(pos: 4623264, value: -1)
             # chr1 4623223 4S97M (pos: 4623223, value: 1)(pos: 4623320, value: -1)
-            assert (rec.start <= mate.stop)
+            assert (rec.start <= mate.stop), rec.tostring() & "\n" & mate.tostring()
             # each element will have a .value of 1 for start and -1 for end.
 
             var ses = sequtils.to_seq(gen_start_ends(rec.cigar, rec.start))
@@ -598,6 +599,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       window = uint32(S.parse_int(region))
     else:
       bed_regions = bed_to_table(region)
+  shallow(arr)
 
   var cs = initCountStat[uint32](size=if use_median: 65536 else: 0)
 
