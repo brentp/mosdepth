@@ -39,7 +39,8 @@ proc clear*[T](c: var CountStat[T]) {.inline.} =
 template len*[T](c:CountStat[T]): int = c.counts.len
 
 proc newDepthStat*[T: SomeNumber](d: seq[T]): depth_stat =
-  result = depth_stat(cum_length: len(d))
+  result.cum_length = len(d)
+  result.min_depth = uint32.high
   for dp in d:
     result.cum_depth += dp.uint64
     result.min_depth = min(result.min_depth, dp.uint32)

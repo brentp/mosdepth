@@ -141,3 +141,9 @@ assert_exit_code 0
 
 run flag $exe -c chrM -F 4 --by 20000 tx /data/human/NA12878.subset.bam
 assert_exit_code 0
+
+
+run check_exit_code_on_bad_args $exe -t4prefix sample.bam
+assert_exit_code 1
+assert_in_stderr "error parsing arguments"
+

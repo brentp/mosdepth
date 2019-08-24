@@ -41,10 +41,10 @@ proc `$`*(r: region_t): string =
 
 proc to_coverage(c: var coverage_t) =
   # to_coverage converts from an array of start/end inc/decs to actual coverage.
-  var d = int32(0)
-  for i, v in pairs(c):
-    d += v
-    c[i] = d
+  var cum = int32(0)
+  for i, d in c.mpairs:
+    cum += d
+    d = cum
 
 iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # given `arr` with values in each index indicating the number of reads
@@ -310,8 +310,8 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
               last_pos = p.pos
             if pair_depth != 0: echo $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
     if fast_mode:
-      arr[rec.start].inc
-      arr[rec.stop].dec
+      arr[rec.start] += 1
+      arr[rec.stop] -= 1
     else:
       inc_coverage(rec.cigar, rec.start, arr)
 
@@ -373,18 +373,16 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32, ms:var CountStat[uint32]
 
 const MAX_COVERAGE = int32(400000)
 
-proc inc(d: var seq[int64], coverage: coverage_t, start:uint32, stop:uint32) =
+proc inc(d: var seq[int64], coverage: var coverage_t, start:uint32, stop:uint32) =
   var v:int32
   var L = int32(d.high)
   if int(start) >= len(coverage):
     stderr.write_line("[mosdepth] warning requested interval outside of chromosome range:", start, "..", stop)
     return
-  var istop = stop
-  if int(stop) > len(coverage):
-    istop = uint32(len(coverage))
+  var istop = min(stop, uint32(coverage.len))
 
   for i in start..<istop:
-    v = coverage[int(i)]
+    v = coverage[i]
     if v > MAX_COVERAGE:
       v = MAX_COVERAGE - 10
     if v >= L:
@@ -393,7 +391,7 @@ proc inc(d: var seq[int64], coverage: coverage_t, start:uint32, stop:uint32) =
         d[j] = 0
       L = int32(d.high)
     if v < 0: continue
-    inc(d[v])
+    d[v] += 1
 
 proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
   var sum: int64
@@ -477,11 +475,11 @@ proc get_quantize_args*(qa: string) : seq[int] =
     quit(2)
 
 
-proc write_thresholds(fh:BGZI, tid:int, arr:coverage_t, thresholds:seq[int], region: region_t) =
+proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int], region: region_t) =
   # write the number of bases in each region that are >= each threshold.
   if thresholds.len == 0: return
   var
-    line = new_string_of_cap(100)
+    line = new_string_of_cap(32)
     start = int(region.start)
     stop = int(region.stop)
   line.add(region.chrom & "\t")
@@ -499,13 +497,14 @@ proc write_thresholds(fh:BGZI, tid:int, arr:coverage_t, thresholds:seq[int], reg
     return
 
   var counts = new_seq[int](len(thresholds))
+  shallow(arr)
 
   # iterate over the region and count bases >= request cutoffs.
   for v in arr[start..<stop]:
     for i, t in thresholds:
-      if v >= t:
-        counts[i] += 1
-      # else: break # if we know they are sorted we can break
+      # if we know they are sorted we can break
+      if v < t: break
+      counts[i] += 1
 
   for count in counts:
     line.add("\t" & intToStr(count))
@@ -712,7 +711,8 @@ proc check_chrom(r: region_t, targets: seq[Target]) =
 proc threshold_args*(ts: string): seq[int] =
   if ts == "nil":
     return
-  return map(ts.split(','), proc (s:string): int = return parse_int(s))
+  result = map(ts.split(','), proc (s:string): int = return parse_int(s))
+  sort(result)
 
 
 proc check_cram_has_ref(cram_path: string, fasta:string) =
@@ -768,7 +768,13 @@ Other options:
   -h --help                     show help
   """ % ["version", version, "env_fasta", env_fasta])
 
-  let args = docopt(doc, version = version)
+  var args: Table[string, Value]
+  try:
+    args = docopt(doc, version = version, quit=false)
+  except DocoptExit:
+    echo (ref DocoptExit)(get_current_exception()).usage
+    quit "error parsing arguments"
+
   let mapq = S.parse_int($args["--mapq"])
   var
     region: string
