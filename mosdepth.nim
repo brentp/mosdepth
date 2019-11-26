@@ -530,6 +530,10 @@ proc get_min_levels(targets: seq[Target]): int =
     result += 1
     s = s shl 3
 
+proc isdigit(s:string): bool =
+  for c in s:
+    if not c.isdigit: return false
+  return true
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
           fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false) =
@@ -759,7 +763,7 @@ Other options:
   -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
   -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
-  -Q --mapq <mapq>              mapping quality threshold [default: 0]
+  -Q --mapq <mapq>              mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
