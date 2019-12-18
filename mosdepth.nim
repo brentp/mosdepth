@@ -289,11 +289,10 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
             # 4623241 4623264
             # chr1 4623171 69M1D23M9S (pos: 4623171, value: 1)(pos: 4623241, value: 1)(pos: 4623240, value: -1)(pos: 4623264, value: -1)
             # chr1 4623223 4S97M (pos: 4623223, value: 1)(pos: 4623320, value: -1)
-            assert (rec.start <= mate.stop), rec.tostring() & "\n" & mate.tostring()
             # each element will have a .value of 1 for start and -1 for end.
 
-            var ses = sequtils.to_seq(gen_start_ends(rec.cigar, rec.start))
-            for p in gen_start_ends(mate.cigar, mate.start):
+            var ses = sequtils.to_seq(gen_start_ends(rec.cigar, rec.start.int))
+            for p in gen_start_ends(mate.cigar, mate.start.int):
                 ses.add(p)
             alg.sort(ses, pair_sort)
             var pair_depth = 0
@@ -313,7 +312,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
       arr[rec.start] += 1
       arr[rec.stop] -= 1
     else:
-      inc_coverage(rec.cigar, rec.start, arr)
+      inc_coverage(rec.cigar, rec.start.int, arr)
 
   if not found:
     return -2

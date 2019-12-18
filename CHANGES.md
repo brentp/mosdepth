@@ -3,6 +3,7 @@
 + small optimizations
 + exit with 1 on bad help #80
 + fix check on remote bam (brentp/hts-nim#48)
++ fix erroneous assert #99
 
 0.2.6
 =====
