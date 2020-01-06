@@ -1,9 +1,10 @@
-0.2.7 (dev)
+0.2.7
 =====
 + small optimizations
 + exit with 1 on bad help #80
 + fix check on remote bam (brentp/hts-nim#48)
 + fix erroneous assert #99
++ update static binary to htslib 1.10 (this fixes other bugs reported and closed in mosdepth)
 
 0.2.6
 =====
