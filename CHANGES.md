@@ -1,3 +1,7 @@
+0.2.8
+=====
++ fix off-by-one error in CSI index (but not data) of output bed files (#98)
+
 0.2.7
 =====
 + small optimizations

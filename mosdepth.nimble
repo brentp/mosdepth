@@ -1,13 +1,13 @@
 # Package
 
-version       = "0.2.6"
+version       = "0.2.8"
 author        = "Brent Pedersen"
 description   = "fast depth"
 license       = "MIT"
 
 # Dependencies
 
-requires "hts >= 0.2.7", "docopt >= 0.6.8", "nim >= 1.0.0"
+requires "hts >= 0.3.1", "docopt >= 0.6.8", "nim >= 1.0.0"
 
 bin = @["mosdepth"]
 skipDirs = @["tests"]
