@@ -126,6 +126,10 @@ run empty_tids $exe t -n --thresholds 1,5 --by tests/empty-tids.bed tests/empty-
 assert_exit_code 0
 assert_equal $(grep -w HPV26 -c t.mosdepth.region.dist.txt) 0
 
+#regions and global should not be the same when -b is specified
+run regions $exe t_regions -n -b 100 tests/empty-tids.bam 
+assert_stdout $(diff t_regions.mosdepth.region.dist.txt t_regions.mosdepth.global.dist.txt) 
+
 rm -f t.per-base.bed.gz*
 run overlappingPairs $exe t tests/overlapping-pairs.bam
 assert_equal "$(zcat t.per-base.bed.gz)" "1	0	565173	0
