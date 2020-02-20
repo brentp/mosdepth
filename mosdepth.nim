@@ -635,9 +635,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
         if tid != -2:
-          if region.isdigit: #store the average coverage for this region
-            chrom_region_distribution[me.toInt] += 1
-          else: #for backward compatibility store the per-base coverage in the region
+          if region.isdigit: #stores the aggregated coverage for each region when working with even windows across the genome
+            chrom_region_distribution[min(me.toInt,int64(len(chrom_region_distribution))-1)] += 1
+          else: # stores the per-base coverage in each region specified in the bed file
             chrom_region_distribution.inc(arr, r.start, r.stop)
 
         write_thresholds(fthresholds, tid, arr, thresholds, r)
