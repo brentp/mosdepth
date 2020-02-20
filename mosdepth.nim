@@ -637,7 +637,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         if tid != -2:
           if region.isdigit: #store the average coverage for this region
             chrom_region_distribution[me.toInt] += 1
-          else #for backward compatibility store the per-base coverage in the region
+          else: #for backward compatibility store the per-base coverage in the region
             chrom_region_distribution.inc(arr, r.start, r.stop)
 
         write_thresholds(fthresholds, tid, arr, thresholds, r)
