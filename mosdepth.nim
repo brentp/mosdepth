@@ -755,7 +755,9 @@ Common Options:
 
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       optional BED file or (integer) window-sizes.
+  -b --by <bed|window>       optional BED file or (integer) window-sizes. 
+                             integer window-sizes will produce region.dist.txt files summarizing 
+                             window-size aggregate (avg. or median) coverage 
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files [default: $env_fasta].
