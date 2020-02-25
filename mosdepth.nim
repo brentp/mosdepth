@@ -1,5 +1,6 @@
 import hts
 import tables
+import ./int2str
 import strutils as S
 import algorithm as alg
 import sequtils as sequtils
@@ -663,8 +664,19 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       if tid == -2:
         discard fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length))
       else:
+        var line = newStringOfCap(32)
+        line.add(starget)
+        var start = newString(12)
+        var stop = newString(12)
+        var value = newString(8)
         for p in gen_depths(arr):
-          discard fbase.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & intToStr(p.value), target.name, p.start, p.stop)
+          line.setLen(starget.len)
+          fastIntToStr(p.start.int32, start)
+          fastIntToStr(p.stop.int32, stop)
+          fastIntToStr(p.value.int32, value)
+          line.add(start); line.add('\t')
+          line.add(stop); line.add('\t'); line.add(value)
+          discard fbase.write_interval(line, target.name, p.start, p.stop)
     if quantize.len != 0:
       if tid == -2 and quantize[0] == 0:
         var lookup = make_lookup(quantize)

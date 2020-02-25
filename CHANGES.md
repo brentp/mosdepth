@@ -2,6 +2,7 @@
 =====
 + modifies region.dist.txt to contain the aggregate coverage of each window when -b (integer) is specified
   (otherwise region.dist.txt and global.disk.txt are identical with -b (integer) )
++ improve speed by ~30% when using per-base output with better int2str method
   
 0.2.8
 =====
