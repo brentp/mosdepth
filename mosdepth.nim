@@ -41,10 +41,7 @@ proc `$`*(r: region_t): string =
 
 proc to_coverage(c: var coverage_t) =
   # to_coverage converts from an array of start/end inc/decs to actual coverage.
-  var cum = int32(0)
-  for i, d in c.mpairs:
-    cum += d
-    d = cum
+  c.cumsum()
 
 iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
   # given `arr` with values in each index indicating the number of reads
@@ -592,7 +589,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   if not open(fh_summary, prefix & ".mosdepth.summary.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.summary.txt")
 
-  if region != "" and not open(fh_region_dist, prefix & ".mosdepth.region.dist.txt", fmWrite):
+  if region != "" and not region.isdigit and not open(fh_region_dist, prefix & ".mosdepth.region.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
   if region != "":
