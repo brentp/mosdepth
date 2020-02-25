@@ -666,16 +666,14 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       else:
         var line = newStringOfCap(32)
         line.add(starget)
-        var start = newString(12)
-        var stop = newString(12)
-        var value = newString(8)
         for p in gen_depths(arr):
+          # re-use line each time.
           line.setLen(starget.len)
-          fastIntToStr(p.start.int32, start)
-          fastIntToStr(p.stop.int32, stop)
-          fastIntToStr(p.value.int32, value)
-          line.add(start); line.add('\t')
-          line.add(stop); line.add('\t'); line.add(value)
+          fastIntToStr(p.start.int32, line, line.len)
+          line.add('\t')
+          fastIntToStr(p.stop.int32, line, line.len)
+          line.add('\t')
+          fastIntToStr(p.value.int32, line, line.len)
           discard fbase.write_interval(line, target.name, p.start, p.stop)
     if quantize.len != 0:
       if tid == -2 and quantize[0] == 0:

@@ -56,8 +56,8 @@ proc countdigits(value:int32): int {.inline.} =
   result = (32 - countLeadingZeroBits(value or 1)) * 1233 shr 12
   result = result - int(value < powers_of_10[result]) + 1
 
-proc fastIntToStr*(value:int32, outstr:var string) {.inline.} =
-  outstr.setLen(countdigits(value))
+proc fastIntToStr*(value:int32, outstr:var string, offset:int=0) {.inline.} =
+  outstr.setLen(offset + countdigits(value))
   var value = value
   var L = outstr.high
   while value >= 100:
@@ -85,7 +85,7 @@ when isMainModule:
   var outstr = newString(10)
   for i in 0'i32..200_000_000:
     fastIntToStr(i, outstr)
-    #doAssert outstr == $i
+    doAssert outstr == $i
   echo cpuTime() - t0
 
   t0 = cpuTime()
