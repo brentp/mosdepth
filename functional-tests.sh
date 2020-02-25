@@ -120,18 +120,25 @@ assert_equal $(cat t.mosdepth.summary.txt  | cut -f 5 | tail -n +2 | uniq) 0
 assert_equal $(cat t.mosdepth.summary.txt  | cut -f 6 | tail -n +2 | uniq) 1
 assert_exit_code 0
 
-rm -f tt.mosdepth.region.dist.txt
-rm -f t.mosdepth.region.dist.txt
+rm -f tt.*
+rm -f t.*
+
 run empty_tids $exe t -n --thresholds 1,5 --by tests/empty-tids.bed tests/empty-tids.bam
 assert_exit_code 0
 assert_equal $(grep -w HPV26 -c t.mosdepth.region.dist.txt) 0
+rm -f t.*
 
-rm -f t.per-base.bed.gz*
+#regions and global should not be the same when -b is specified
+run regions $exe t_regions -n -b 100 tests/empty-tids.bam 
+assert_equal $(diff -u t_regions.mosdepth.region.dist.txt t_regions.mosdepth.global.dist.txt | wc -l) 1447
+rm -f t_regions.*
+
 run overlappingPairs $exe t tests/overlapping-pairs.bam
 assert_equal "$(zcat t.per-base.bed.gz)" "1	0	565173	0
 1	565173	565253	1
 1	565253	249250621	0"
 assert_exit_code 0
+rm -f t.*
 
 test -e $bam || exit
 

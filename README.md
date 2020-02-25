@@ -13,6 +13,7 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing
 + per-base depth about 2x as fast `samtools depth`--about 25 minutes of CPU time for a 30X genome.
 + mean per-window depth given a window size--as would be used for CNV calling.
 + the mean per-region given a BED file of regions.
+* the mean or median per-region cumulative coverage histogram given a window size
 + a distribution of proportion of bases covered at or above a given threshold for each chromosome and genome-wide.
 + quantized output that merges adjacent bases as long as they fall in the same coverage bins e.g. (10-20)
 + threshold output to indicate how many bases in each region are covered at the given thresholds.

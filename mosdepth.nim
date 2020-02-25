@@ -632,7 +632,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
         discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
         line = line[0..<0]
         if tid != -2:
-          chrom_region_distribution.inc(arr, r.start, r.stop)
+          if region.isdigit: #stores the aggregated coverage for each region when working with even windows across the genome
+            chrom_region_distribution[min(me.toInt,int64(len(chrom_region_distribution))-1)] += 1
+          else: # stores the per-base coverage in each region specified in the bed file
+            chrom_region_distribution.inc(arr, r.start, r.stop)
+
         write_thresholds(fthresholds, tid, arr, thresholds, r)
     if tid != -2:
       chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr) - 1))
@@ -748,7 +752,7 @@ Common Options:
 
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       optional BED file or (integer) window-sizes.
+  -b --by <bed|window>       optional BED file or (integer) window-sizes. 
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files [default: $env_fasta].
