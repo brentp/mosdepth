@@ -589,7 +589,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   if not open(fh_summary, prefix & ".mosdepth.summary.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.summary.txt")
 
-  if region != "" and not region.isdigit and not open(fh_region_dist, prefix & ".mosdepth.region.dist.txt", fmWrite):
+  if region != "" and not open(fh_region_dist, prefix & ".mosdepth.region.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
   if region != "":
