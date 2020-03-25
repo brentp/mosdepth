@@ -19,6 +19,9 @@ def main():
         for chrom, data in it.groupby(gen, itemgetter(0)):
             if chrom.startswith("GL"):
                 continue
+            if "Un" in chrom: continue
+            if "random" in chrom or "HLA" in chrom: continue
+            if chrom.endswith("alt"): continue
             chroms[chrom] = True
             xs, ys = [], []
             v50 = 0
