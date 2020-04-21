@@ -10,8 +10,10 @@ test -e ssshtest || wget -q https://raw.githubusercontent.com/ryanlayer/ssshtest
 
 set -o nounset
 
+
 set -e
 nim c --boundChecks:on -x:on mosdepth.nim
+nim c -r tests/funcs.nim
 set +e
 exe=./mosdepth
 bam=/data/human/NA12878.subset.bam

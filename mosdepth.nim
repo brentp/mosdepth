@@ -24,11 +24,11 @@ type
   pair = tuple[pos: int, value: int32]
   depth_t = tuple[start: int, stop: int, value: int]
   depth_s = tuple[start: int, stop: int, value: string]
-  region_t = ref object
-    chrom: string
-    start: uint32
-    stop: uint32
-    name: string
+  region_t* = ref object
+    chrom*: string
+    start*: uint32
+    stop*: uint32
+    name*: string
 
   coverage_t = seq[int32]
 
@@ -190,20 +190,23 @@ proc bed_line_to_region(line: string): region_t =
      reg.name = cse[3]
    return reg
 
-proc region_line_to_region(region: string): region_t =
+proc region_line_to_region*(region: string): region_t =
   if region == "" or region == "nil":
     return nil
+  if ':' notin region:
+    return region_t(chrom:region)
+  result = region_t()
+
   var i = 0
-  var r = region_t()
-  for w in region.split({':', '-'}):
+  # rsplit yields strings in reverse order
+  for w in region.rsplit({':', '-'}, maxsplit=2):
     if i == 1:
-      r.start = uint32(S.parse_int(w)) - 1
-    elif i == 2:
-      r.stop = uint32(S.parse_int(w))
+      result.start = uint32(S.parse_int(w)) - 1
+    elif i == 0:
+      result.stop = uint32(S.parse_int(w))
     else:
-      r.chrom = w
+      result.chrom = w
     inc(i)
-  return r
 
 proc get_tid(tgts: seq[hts.Target], chrom: string): int =
   for t in tgts:
@@ -740,7 +743,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.2.9"
+  let version = "mosdepth 0.3.0"
   let env_fasta = getEnv("REF_PATH")
   let doc = format("""
   $version

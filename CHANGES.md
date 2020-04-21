@@ -1,3 +1,7 @@
+v0.3.0 (dev)
+============
++ allow chromosome names containing '-' as arguments for -c
+
 0.2.9
 =====
 + modifies region.dist.txt to contain the aggregate coverage of each window when -b (integer) is specified

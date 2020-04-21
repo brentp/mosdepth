@@ -1,4 +1,5 @@
-import unittest, mosdepth as mosdepth
+import unittest
+import mosdepth
 import os
 
 suite "mosdepth-suite":
@@ -64,6 +65,14 @@ suite "mosdepth-suite":
     check ts[2] == 3
     check ts.len == 3
 
+  test "name splitting":
 
+    var r = region_line_to_region("Super-Scaffold_52")
+    check r.chrom == "Super-Scaffold_52"
+    check r.start == 0
+    check r.stop == 0
 
-
+    r = region_line_to_region("Super-Scaffold_52:2-1000")
+    check r.chrom == "Super-Scaffold_52"
+    check r.start == 1
+    check r.stop == 1000
