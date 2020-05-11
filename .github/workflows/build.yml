@@ -1,0 +1,96 @@
+# copied from Daniel Cook's Seq collection
+name: Build
+
+on: 
+  - push
+  - pull_request
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-10.15]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # Caching
+    - name: Cache choosenim
+      id: cache-choosenim
+      uses: actions/cache@v1
+      with:
+        path: ~/.choosenim
+        key: ${{ runner.os }}-choosenim-stable
+
+    - name: Cache nimble
+      id: cache-nimble
+      uses: actions/cache@v1
+      with:
+        path: ~/.nimble
+        key: ${{ runner.os }}-nimble-stable
+
+    - name: Cache htslib
+      id: cache-htslib
+      uses: actions/cache@v1
+      with:
+        path: $HOME/htslib
+        key: ${{ runner.os }}-htslib-1.10
+
+    # Setup nim
+    - uses: jiro4989/setup-nim-action@v1.0.2
+      with:
+          nim-version: 1.0.6
+
+    # Install Dependencies
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
+             curl libssl-dev libtool autoconf automake libcurl4-openssl-dev
+
+    # Setup htslib
+    - name: Install htslib (linux)
+      if: runner.os == 'Linux'
+      run: |
+        cd
+        git clone --recursive https://github.com/samtools/htslib.git
+        cd htslib && git checkout 1.10 && autoheader && autoconf && ./configure --enable-libcurl
+        cd
+        make -j 4 -C htslib
+        echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
+        ls -lh $HOME/htslib/*.so
+
+    - name: Install hstlib (macos)
+      if: runner.os == 'macOS'
+      run: |
+        brew install htslib
+
+    # Build and Test
+    - name: Build test executable
+      run: nimble build -Y mosdepth.nimble
+
+    - name: "Copy binary"
+      run: chmod +x mosdepth && mkdir bin && cp mosdepth bin/mosdepth_debug_${{ matrix.os }}
+
+    - name: "Build and Copy release binary"
+      run: nim c -d:danger -d:release -o:bin/mosdepth_${{ matrix.os }} mosdepth
+    
+    - name: Functional Tests
+      env:
+        TERM: "xterm"
+      run: |
+        bash ./functional-tests.sh
+
+    - name: Unit Tests
+      run: |
+        nim c -r tests/all.nim
+
+    - name: Upload Artifact
+      if: success()
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        name: mosdepth_${{ matrix.os }}_executable
+        path: bin/

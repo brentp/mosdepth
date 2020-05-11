@@ -47,7 +47,7 @@ assert_exit_code 1
 
 run unordered_bed $exe --by tests/unordered.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal $(zcat t.regions.bed.gz | wc -l) 2
+assert_equal $(zcat < t.regions.bed.gz | wc -l) 2
 
 # theres data left in the bam but the region tree is empty...
 run missing_bed_chrom $exe --by tests/missing.bed t tests/ovl.bam
@@ -74,13 +74,13 @@ assert_exit_code 0
 
 rm -f t.thresholds.bed.gz*
 run threshold_test $exe --by 100 -T 0,1,2,3,4,5 -c MT t tests/ovl.bam
-assert_equal "$(zcat t.thresholds.bed.gz | tail -n +2 | head -1)" "MT	0	100	unknown	100	80	0	0	0	0"
-assert_equal "0" "$(zcat t.thresholds.bed.gz | tail -n+2 | cut -f 7 | uniq)"
+assert_equal "$(zcat < t.thresholds.bed.gz | tail -n +2 | head -1)" "MT	0	100	unknown	100	80	0	0	0	0"
+assert_equal "0" "$(zcat < t.thresholds.bed.gz | tail -n+2 | cut -f 7 | uniq)"
 assert_exit_code 0
 
 rm -f t.thresholds.bed.gz*
 run threshold_test_by $exe --by tests/track.bed -T 0,1,2 -c MT t tests/ovl.bam
-assert_equal "$(zcat t.thresholds.bed.gz | tail -n +2)" "MT	2	80	aregion	78	78	0"
+assert_equal "$(zcat < t.thresholds.bed.gz | tail -n +2)" "MT	2	80	aregion	78	78	0"
 assert_exit_code 0
 
 export MOSDEPTH_Q0=AAA
@@ -97,7 +97,7 @@ assert_equal "$(tail -n 1 t.mosdepth.summary.txt)" "total	16569	80	0.0048283	0	1
 
 run track_header $exe --by tests/track.bed t tests/ovl.bam
 assert_exit_code 0
-assert_equal "$(zcat t.regions.bed.gz)" "MT	2	80	aregion	1.00"
+assert_equal "$(zcat < t.regions.bed.gz)" "MT	2	80	aregion	1.00"
 
 run track_header_by $exe --by tests/bad.bed t tests/ovl.bam
 assert_exit_code 1
@@ -136,7 +136,7 @@ assert_equal $(diff -u t_regions.mosdepth.region.dist.txt t_regions.mosdepth.glo
 rm -f t_regions.*
 
 run overlappingPairs $exe t tests/overlapping-pairs.bam
-assert_equal "$(zcat t.per-base.bed.gz)" "1	0	565173	0
+assert_equal "$(zcat < t.per-base.bed.gz)" "1	0	565173	0
 1	565173	565253	1
 1	565253	249250621	0"
 assert_exit_code 0
