@@ -191,7 +191,7 @@ for at least a given coverage value. It does this for each chromosome, and for t
 whole genome.
 
 Each row will indicate:
- + chromosome (or "genome")
+ + chromosome (or "total")
  + coverage level
  + proportion of bases covered at that level
 
