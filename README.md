@@ -137,7 +137,10 @@ This also forces the output to have 5 decimals of precision rather than the defa
 
 ## Installation
 
-The simplest way is to [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
+
+The simplest option is to download the [binary from the releases](https://github.com/brentp/mosdepth/releases).
+
+Another quick way is to [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
 
 It can also be installed with `brew` as `brew install brewsci/bio/mosdepth` or used via docker with quay:
 ```
@@ -145,10 +148,8 @@ docker pull quay.io/biocontainers/mosdepth:0.2.4--he527e40_0
 docker run -v /hostpath/:/opt/mount quay.io/biocontainers/mosdepth:0.2.4--he527e40_0 mosdepth -n --fast-mode -t 4 --by 1000 /opt/mount/sample /opt/mount/$bam
 ```
 
-Unless you want to install [nim](https://nim-lang.org), simply download the
-[binary from the releases](https://github.com/brentp/mosdepth/releases).
-
-`mosdepth` uses requires htslib version 1.4 or later. If you get an error
+The binary from releases is static, with no dependencies. If you build it yourself,
+`mosdepth` requires htslib version 1.4 or later. If you get an error
 about "`libhts.so` not found", set `LD_LIBRARY_PATH` to the directory that
 contains `libhts.so`. e.g.
 
@@ -156,25 +157,6 @@ contains `libhts.so`. e.g.
 
 If you get the error `could not import: hts_check_EOF` you may need to
 install a more recent version of htslib.
-
-`mosdepth` also requires a recent version of [PCRE](https://www.pcre.org/), and will give the error `could not import: pcre_free_study` if the version of PCRE on your system is too old.
-If you do not have root and cannot get the system version of PCRE upgraded, you download and compile a local copy
-```
-cd ~/src/
-wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.41.tar.gz
-tar zxvf pcre-8.41.tar.gz
-cd pcre-8.41/
-./configure
-make
-```
-
-Then pass that path to mosdepth just like we did with htslib
-```
-LD_LIBRARY_PATH=~/src/pcre-8.41/.libs/:/~/src/htslib/ mosdepth -h
-```
-
-If you still see an error about `could not import: pcre_free_study` then 
-for some, the solution has been to do: `ln -s /usr/local/lib/libpcre.so /usr/local/lib/libpcre.so.3`
 
 If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
 and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
