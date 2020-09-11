@@ -6,10 +6,14 @@ import algorithm as alg
 import sequtils as sequtils
 import strutils as su
 import os
+import strformat
 import docopt
 import times
 import math
 import ./depthstat
+
+when defined(d4):
+  import d4
 
 var precision: int
 var output_summary_header = true
@@ -535,8 +539,13 @@ proc isdigit(s:string): bool =
     if not c.isdigit: return false
   return true
 
+proc to_tuples(targets:seq[Target]): seq[tuple[name:string, length:int]] =
+  result.setLen(targets.len)
+  for i, t in targets:
+    result[i] = (t.name, t.length.int)
+
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
-          fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false) =
+          fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false, use_d4:bool=false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -549,7 +558,6 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     skip_per_base = args["--no-per-base"]
     window: uint32 = 0
     bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
-    fbase: BGZI
     #fbase: BGZ
     fquantize: BGZI
     fthresholds: BGZI
@@ -565,6 +573,10 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     global_region_stat: depth_stat
     global_stat: depth_stat
 
+  when defined(d4):
+    var fd4:D4
+  var fbase: BGZI
+
   var region_distribution = new_seq[int64](1000)
   var global_distribution = new_seq[int64](1000)
 
@@ -578,7 +590,13 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   if not skip_per_base:
     # can't use set-threads when indexing on the fly so this must
     # not call set_threads().
-    fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
+    if use_d4:
+      when defined(d4):
+        doAssert fd4.open(prefix & ".per-base.d4", mode="w"), &"[mosdepth] error opening {prefix}.per-base.d4"
+        fd4.set_chromosomes(targets.to_tuples)
+
+    else:
+      fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
     #open(fbase, prefix & ".per-base.bed.gz", "w1")
   if quantize.len != 0:
     fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
@@ -665,19 +683,29 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
 
     if not skip_per_base:
       if tid == -2:
-        discard fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length))
+        when defined(d4):
+          fd4.write(target.name, @[Interval(left: 0'u32, right: target.length.uint32, value: 0'i32)])
+        else:
+          discard fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length))
       else:
-        var line = newStringOfCap(32)
-        line.add(starget)
-        for p in gen_depths(arr):
-          # re-use line each time.
-          line.setLen(starget.len)
-          fastIntToStr(p.start.int32, line, line.len)
-          line.add('\t')
-          fastIntToStr(p.stop.int32, line, line.len)
-          line.add('\t')
-          fastIntToStr(p.value.int32, line, line.len)
-          discard fbase.write_interval(line, target.name, p.start, p.stop)
+        var write_fbase = true
+        when defined(d4):
+          if use_d4:
+            fd4.write(target.name, 0, arr)
+            write_fbase = false
+
+        if write_fbase:
+          var line = newStringOfCap(32)
+          line.add(starget)
+          for p in gen_depths(arr):
+            # re-use line each time.
+            line.setLen(starget.len)
+            fastIntToStr(p.start.int32, line, line.len)
+            line.add('\t')
+            fastIntToStr(p.stop.int32, line, line.len)
+            line.add('\t')
+            fastIntToStr(p.value.int32, line, line.len)
+            discard fbase.write_interval(line, target.name, p.start, p.stop)
     if quantize.len != 0:
       if tid == -2 and quantize[0] == 0:
         var lookup = make_lookup(quantize)
@@ -711,6 +739,9 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   if fthresholds != nil and close(fthresholds) != 0:
       stderr.write_line("[mosdepth] error writing thresholds file\n")
       quit(1)
+  when defined(d4):
+    if use_d4:
+      fd4.close
 
   if fbase != nil and close(fbase) != 0:
       stderr.write_line("[mosdepth] error writing per-base file\n")
@@ -745,7 +776,7 @@ when(isMainModule):
 
   let version = "mosdepth 0.3.0"
   let env_fasta = getEnv("REF_PATH")
-  let doc = format("""
+  var doc = format("""
   $version
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
@@ -765,10 +796,16 @@ Common Options:
 
   -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
-  -b --by <bed|window>       optional BED file or (integer) window-sizes. 
+  -b --by <bed|window>       optional BED file or (integer) window-sizes.
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files [default: $env_fasta].
+""" % ["version", version, "env_fasta", env_fasta])
+  when defined(d4):
+    doc &= """  --d4                       output per-base depth in d4 format.
+"""
+
+  doc &= """
 
 Other options:
 
@@ -783,7 +820,7 @@ Other options:
   -m --use-median               output median of each region (in --by) instead of mean.
   -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
   -h --help                     show help
-  """ % ["version", version, "env_fasta", env_fasta])
+  """
 
   var args: Table[string, Value]
   try:
@@ -798,6 +835,10 @@ Other options:
     thresholds: seq[int] = threshold_args($args["--thresholds"])
     fast_mode:bool = args["--fast-mode"]
     use_median:bool = args["--use-median"]
+  when defined(d4):
+    var use_d4:bool = args["--d4"] and not args["--no-per-base"]
+  else:
+    var use_d4:bool = false
 
   if $args["--by"] != "nil":
     region = $args["--by"]
@@ -833,4 +874,4 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median)
+  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median, use_d4=use_d4)

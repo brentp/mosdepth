@@ -3,7 +3,7 @@ env:
   - BRANCH=devel
 
 before_install:
-  - export LD_LIBRARY_PATH=./htslib/
+  - export LD_LIBRARY_PATH=./htslib-1.10.2/:/usr/local/lib
   - export PATH="$TRAVIS_BUILD_DIR/nim-$BRANCH/bin:$PATH"
   - export NIM_LIB_PREFIX=$TRAVIS_BUILD_DIR/nim-$BRANCH/
 
