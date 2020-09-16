@@ -1,4 +1,5 @@
 nimcache
+*.d4
 *.bam
 *.cram
 *.bai
@@ -6,3 +7,6 @@ nimcache
 profile_results.txt
 t.*.bed.gz
 t.*.bed.gz.csi
+*.bed.gz*
+*.dist.txt
+*.summary.txt

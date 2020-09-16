@@ -142,6 +142,13 @@ assert_equal "$(zcat < t.per-base.bed.gz)" "1	0	565173	0
 assert_exit_code 0
 rm -f t.*
 
+
+nim c -d:d4 --boundChecks:on -x:on mosdepth.nim
+rm -f t.per-base.bed.gz
+run d4test $exe --d4 t --fast-mode tests/ovl.bam
+assert_exit_code 0
+
+
 test -e $bam || exit
 
 run short $exe -c chrM t $bam
@@ -155,4 +162,7 @@ assert_exit_code 0
 run check_exit_code_on_bad_args $exe -t4prefix sample.bam
 assert_exit_code 1
 assert_in_stderr "error parsing arguments"
+
+
+
 

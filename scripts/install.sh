@@ -21,10 +21,26 @@ cd $base
 nimble refresh
 $base/nim-$BRANCH/bin/nimble install -y
 
-git clone --recursive https://github.com/samtools/htslib.git
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -qy
 
-cd htslib && git checkout 1.10 && autoheader && autoconf && ./configure --enable-libcurl
+export HTSLIB=dynamic
+sudo apt-get update
+sudo apt-get install git llvm curl wget libcurl4-openssl-dev
+wget https://github.com/samtools/htslib/archive/1.10.2.tar.gz
+tar xzf 1.10.2.tar.gz
+cd htslib-1.10.2/
+autoheader && autoconf && ./configure --enable-libcurl
+sudo make -j4 install
+git clone https://github.com/38/d4-format
+cd d4-format
+~/.cargo/bin/cargo build --release
+sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
+sudo cp ./d4binding/include/d4.h /usr/local/include/
+sudo ldconfig
+
+
 cd ..
-make -j 4 -C htslib
-export LD_LIBRARY_PATH=$base/htslib
-ls -lh $base/htslib/*.so
+export LD_LIBRARY_PATH=$base/htslib-1.10.2
+ls -lh $base/htslib-1.10.2/*.so
+
+nimble install -y https://github.com/brentp/d4-nim/

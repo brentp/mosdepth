@@ -12,6 +12,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-18.04, macos-10.15]
+        nimversion:
+        - stable
+        - devel
+
 
     steps:
     - uses: actions/checkout@v2
@@ -38,11 +42,6 @@ jobs:
         path: $HOME/htslib
         key: ${{ runner.os }}-htslib-1.10
 
-    # Setup nim
-    - uses: jiro4989/setup-nim-action@v1.0.2
-      with:
-          nim-version: 1.0.6
-
     # Install Dependencies
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
@@ -50,6 +49,14 @@ jobs:
         sudo apt-get update
         sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
              curl libssl-dev libtool autoconf automake libcurl4-openssl-dev
+
+
+    - name: Install d4 
+        git clone https://github.com/38/d4-format
+        cd d4-format
+        cargo build --release
+        sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
+        sudo cp ./d4binding/include/d4.h /usr/local/include/
 
     # Setup htslib
     - name: Install htslib (linux)
@@ -67,6 +74,16 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install htslib
+
+    - uses: iffy/install-nim@v1.1
+      with:
+        nimversion: ${{ matrix.nimversion }}
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - uses: actions-rs/cargo@v1
+
 
     # Build and Test
     - name: Build test executable
