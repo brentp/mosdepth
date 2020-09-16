@@ -19,13 +19,14 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing
 + quantized output that merges adjacent bases as long as they fall in the same coverage bins e.g. (10-20)
 + threshold output to indicate how many bases in each region are covered at the given thresholds.
 + A summary of mean depths per chromosome and within specified regions per chromosome.
++ a [d4](https://github.com/38/d4-format) file (better than bigwig).
 
 when appropriate, the output files are bgzipped and indexed for ease of use.
 
 ## usage
 
 ```
-mosdepth 0.2.3
+mosdepth 0.3.0
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
@@ -34,7 +35,7 @@ Arguments:
   <prefix>       outputs: `{prefix}.mosdepth.global.dist.txt`
                           `{prefix}.mosdepth.summary.txt`
                           `{prefix}.mosdepth.region.dist.txt` (if --by is specified)
-                          `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
+                          `{prefix}.per-base.bed.gz|per-base.d4` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
                           `{prefix}.quantized.bed.gz` (if --quantize is specified)
                           `{prefix}.thresholds.bed.gz` (if --thresholds is specified)
@@ -49,6 +50,8 @@ Common Options:
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files.
+  --d4                       output per-base depth in d4 format. This is much faster.
+
 
 Other options:
 
@@ -134,6 +137,15 @@ MOSDEPTH_PRECISION=5 mosdepth -n -t 3 $sample $bam
 Output will go to `$sample.mosdepth.dist.txt`
 
 This also forces the output to have 5 decimals of precision rather than the default of 2.
+
+## D4
+
+D4 is a format created by [Hao Hou](https://github.com/38) in the Quinlan lab. It is
+incorporated into `mosdepth` as of version 0.3.0 for per-base output with the `--d4` flag.
+It improves write speed dramatically; for one test-case it takes **24.8s** to write a
+per-base.bed.gz with mosdepth compared to **7.7s** to write a d4 file. For the same case,
+running `mosdepth` without writing per-base takes 5.9 seconds so D4 greatly mitigates
+the cost of outputing per-base depth **and** the output is more useful.
 
 ## Installation
 
