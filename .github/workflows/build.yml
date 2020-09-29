@@ -50,25 +50,26 @@ jobs:
         sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
              curl libssl-dev libtool autoconf automake libcurl4-openssl-dev
 
-
-    - name: Install d4 
-        git clone https://github.com/38/d4-format
-        cd d4-format
-        cargo build --release
-        sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
-        sudo cp ./d4binding/include/d4.h /usr/local/include/
-
     # Setup htslib
     - name: Install htslib (linux)
       if: runner.os == 'Linux'
       run: |
         cd
         git clone --recursive https://github.com/samtools/htslib.git
-        cd htslib && git checkout 1.10 && autoheader && autoconf && ./configure --enable-libcurl
+        cd htslib && git checkout 1.11 && autoheader && autoconf && ./configure --enable-libcurl
         cd
-        make -j 4 -C htslib
+        make -j 4 -C htslib install
         echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
         ls -lh $HOME/htslib/*.so
+
+    - name: Install d4 
+        export HTSLIB=system
+        git clone https://github.com/38/d4-format
+        cd d4-format
+        cargo build --release
+        sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
+        sudo cp ./d4binding/include/d4.h /usr/local/include/
+
 
     - name: Install hstlib (macos)
       if: runner.os == 'macOS'

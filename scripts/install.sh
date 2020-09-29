@@ -23,16 +23,17 @@ $base/nim-$BRANCH/bin/nimble install -y
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -qy
 
-export HTSLIB=dynamic
+export HTSLIB=system
 sudo apt-get update
 sudo apt-get install git llvm curl wget libcurl4-openssl-dev
-wget https://github.com/samtools/htslib/archive/1.10.2.tar.gz
-tar xzf 1.10.2.tar.gz
-cd htslib-1.10.2/
-autoheader && autoconf && ./configure --enable-libcurl
+wget https://github.com/samtools/htslib/archive/1.11.tar.gz
+tar xzf 1.11.tar.gz
+cd htslib-1.11/
+autoheader && autoconf && ./configure --disable-libcurl
 sudo make -j4 install
 git clone https://github.com/38/d4-format
 cd d4-format
+
 ~/.cargo/bin/cargo build --release
 sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
 sudo cp ./d4binding/include/d4.h /usr/local/include/
