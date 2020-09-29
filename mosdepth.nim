@@ -684,7 +684,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     if not skip_per_base:
       if tid == -2:
         when defined(d4):
-          fd4.write(target.name, @[Interval(left: 0'u32, right: target.length.uint32, value: 0'i32)])
+          if use_d4:
+            fd4.write(target.name, @[Interval(left: 0'u32, right: target.length.uint32, value: 0'i32)])
         else:
           discard fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length))
       else:
@@ -774,7 +775,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.3.0"
+  let version = "mosdepth 0.3.1"
   let env_fasta = getEnv("REF_PATH")
   var doc = format("""
   $version

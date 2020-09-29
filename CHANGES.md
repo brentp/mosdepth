@@ -1,6 +1,11 @@
-v0.3.0 (dev)
-============
+v0.3.1
+======
++ fix bug with regions and d4 that would cause error even when --d4 was not used.
+
+v0.3.0
+======
 + allow chromosome names containing '-' as arguments for -c
++ d4 output
 
 0.2.9
 =====
