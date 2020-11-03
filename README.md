@@ -63,6 +63,7 @@ Other options:
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
+  -m --use-median               output median of each region (in --by) instead of mean.
   -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
   -h --help                     show help
 
