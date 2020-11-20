@@ -208,7 +208,7 @@ close to 30X coverage for almost 40% of the genome.
 
 ![Y Example](https://user-images.githubusercontent.com/1739/29646191-2a246564-883f-11e7-951a-aa68d7a1a6ed.png "Y Example")
 
-See [this blog post](http://www.gettinggeneticsdone.com/2014/03/visualize-coverage-exome-targeted-ngs-bedtools.html) for
+See [this blog post](https://web.archive.org/web/20181018084459/http://www.gettinggeneticsdone.com/2014/03/visualize-coverage-exome-targeted-ngs-bedtools.html) for
 more details.
 
 ## thresholds
