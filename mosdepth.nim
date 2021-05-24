@@ -845,7 +845,7 @@ Other options:
     region = $args["--by"]
   else:
     if thresholds.len != 0:
-      stderr.write_line("[mosdepth] error --thresholds can noly be used when --by is specified.")
+      stderr.write_line("[mosdepth] error --thresholds can only be used when --by is specified.")
       quit(2)
   GC_disableMarkAndSweep()
   var fasta: cstring = nil
