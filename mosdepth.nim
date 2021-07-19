@@ -229,7 +229,7 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[cstring]=(@[]), fast_mode:bool=false): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -258,7 +258,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
     if iflag != 0 and ((rec.flag and iflag) == 0):
       continue
     if has_read_groups:
-      var t = tag[cstring](rec, "RG")
+      var t = tag[string](rec, "RG")
       if t.isNone or not read_groups.contains(t.get):
         continue
     if tgt.tid != rec.b.core.tid:
@@ -551,7 +551,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
   var
     targets = bam.hdr.targets
     sub_targets = get_targets(targets, chrom)
-    read_groups: seq[cstring]
+    read_groups: seq[string]
     rchrom : region_t
     arr: coverage_t
     prefix: string = $(args["<prefix>"])
@@ -582,7 +582,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
 
   if $args["--read-groups"] != "nil":
     for r in ($args["--read-groups"]).split(','):
-      read_groups.add(r.cstring)
+      read_groups.add($r)
   var levels = get_min_levels(targets)
 
   var chrom_region_distribution, chrom_global_distribution: seq[int64]
@@ -775,7 +775,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.3.1"
+  let version = "mosdepth 0.3.2"
   let env_fasta = getEnv("REF_PATH")
   var doc = format("""
   $version
