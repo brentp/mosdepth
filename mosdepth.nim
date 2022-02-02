@@ -775,7 +775,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.3.2"
+  let version = "mosdepth 0.3.3"
   let env_fasta = getEnv("REF_PATH")
   var doc = format("""
   $version

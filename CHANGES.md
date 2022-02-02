@@ -1,3 +1,7 @@
+v0.3.3
+======
++ allow specifying a custom index by passing '/path/to/bam##idx##/other-path/to/index.bai'
+
 v0.3.1
 ======
 + fix bug with regions and d4 that would cause error even when --d4 was not used.
