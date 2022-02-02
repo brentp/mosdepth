@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-18.04, macos-10.15]
-        nimversion:
+        version:
         - stable
         - devel
 
@@ -48,7 +48,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
-             curl libssl-dev libtool autoconf automake libcurl4-openssl-dev
+             curl libssl-dev libtool autoconf automake libcurl4-openssl-dev zlib1g-dev
 
     # Setup htslib
     - name: Install htslib (linux)
@@ -57,28 +57,31 @@ jobs:
         cd
         git clone --recursive https://github.com/samtools/htslib.git
         cd htslib && git checkout 1.11 && autoheader && autoconf && ./configure --enable-libcurl
-        cd
-        make -j 4 -C htslib install
-        echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
-        ls -lh $HOME/htslib/*.so
-
-    - name: Install d4 
-        export HTSLIB=system
-        git clone https://github.com/38/d4-format
-        cd d4-format
-        cargo build --release
-        sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
-        sudo cp ./d4binding/include/d4.h /usr/local/include/
-
+        sudo make -j 4 install
+        sudo ldconfig
+        #echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
+        #ls -lh $HOME/htslib/*.so
 
     - name: Install hstlib (macos)
       if: runner.os == 'macOS'
       run: |
         brew install htslib
 
-    - uses: iffy/install-nim@v1.1
+    - name: Install d4 
+      run: |
+        #export HTSLIB=system
+        git clone https://github.com/38/d4-format
+        cd d4-format
+        cargo build --release --all-features
+        cd d4binding/ && cargo build --release && cd ..
+        sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
+        sudo cp ./d4binding/include/d4.h /usr/local/include/
+        sudo ldconfig || true
+
+
+    - uses: iffy/install-nim@v4.1.1
       with:
-        nimversion: ${{ matrix.nimversion }}
+        version: ${{ matrix.version }}
 
     - uses: actions-rs/toolchain@v1
       with:

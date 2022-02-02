@@ -765,7 +765,7 @@ proc threshold_args*(ts: string): seq[int] =
 
 
 proc check_cram_has_ref(cram_path: string, fasta:string) =
-  if fasta != "" and exists_file(fasta):
+  if fasta != "" and fileExists(fasta):
     return
   if cram_path.ends_with(".cram"):
     stderr.write_line("[mosdepth] ERROR: specify a reference file (or set REF_PATH env var) for decoding CRAM")

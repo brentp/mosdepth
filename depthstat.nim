@@ -18,7 +18,7 @@ proc add*[T](c: var CountStat, value: T) {.inline.} =
   if value.int > c.counts.high.int:
     c.counts[c.counts.high].inc
   elif value < 0:
-    raise newException(IndexError, "error setting negative depth value:" & $value)
+    raise newException(IndexDefect, "error setting negative depth value:" & $value)
   else:
     c.counts[value].inc
 
