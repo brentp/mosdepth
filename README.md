@@ -5,7 +5,6 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
 [![Build](https://github.com/brentp/mosdepth/workflows/Build/badge.svg?branch=master)](https://github.com/brentp/mosdepth/actions?query=workflow%3ABuild)
-[![Build Status](https://travis-ci.com/brentp/mosdepth.svg?branch=master)](https://travis-ci.com/brentp/mosdepth)
 
 [![citation](https://img.shields.io/badge/cite-open%20access-orange.svg)](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
 
@@ -171,8 +170,7 @@ contains `libhts.so`. e.g.
 If you get the error `could not import: hts_check_EOF` you may need to
 install a more recent version of htslib.
 
-If you do want to install from source, see the [travis.yml](https://github.com/brentp/mosdepth/blob/master/.travis.yml)
-and the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
+If you do want to install from source, see the [install.sh](https://github.com/brentp/mosdepth/blob/master/scripts/install.sh).
 
 If you use archlinux, you can [install as a package](https://aur.archlinux.org/packages/mosdepth/)
 
