@@ -72,10 +72,9 @@ jobs:
         #export HTSLIB=system
         git clone https://github.com/38/d4-format
         cd d4-format
-        cargo build --release --all-features
-        cd d4binding/ && cargo build --release && cd ..
-        sudo cp ../d4-format/target/release/libd4binding.* /usr/local/lib
-        sudo cp ./d4binding/include/d4.h /usr/local/include/
+        cargo build --release --all-features --package=d4binding
+        sudo cp target/release/libd4binding.* /usr/local/lib
+        sudo cp d4binding/include/d4.h /usr/local/include/
         sudo ldconfig || true
 
 
