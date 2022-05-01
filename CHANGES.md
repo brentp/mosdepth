@@ -1,3 +1,7 @@
+v0.3.4
+======
++ bump version for build supporting gs:// urls
+
 v0.3.3
 ======
 + allow specifying a custom index by passing '/path/to/bam##idx##/other-path/to/index.bai'
