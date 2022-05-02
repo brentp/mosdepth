@@ -25,7 +25,7 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ## usage
 
 ```
-mosdepth 0.3.0
+mosdepth 0.3.4
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
