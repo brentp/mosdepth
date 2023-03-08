@@ -156,7 +156,7 @@ Another quick way is to [![install with bioconda](https://img.shields.io/badge/i
 
 It can also be installed with `brew` as `brew install brewsci/bio/mosdepth` or used via docker with quay:
 ```
-docker pull quay.io/biocontainers/mosdepth:0.2.4--he527e40_0
+docker pull quay.io/biocontainers/mosdepth:0.3.3--h37c5b7d_2
 docker run -v /hostpath/:/opt/mount quay.io/biocontainers/mosdepth:0.2.4--he527e40_0 mosdepth -n --fast-mode -t 4 --by 1000 /opt/mount/sample /opt/mount/$bam
 ```
 
