@@ -644,7 +644,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
       for r in region_gen(window, target, bed_regions):
         if tid != -2:
           me = imean(arr, r.start, r.stop, cs)
-          chrom_region_stat = chrom_region_stat + newDepthStat(arr[r.start..<r.stop])
+          chrom_region_stat = chrom_region_stat + newDepthStat(arr[r.start..<min(arr.len.uint32, r.stop)])
         var m = su.format_float(me, ffDecimal, precision=precision)
 
         if r.name == "":
