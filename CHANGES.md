@@ -1,6 +1,7 @@
 v0.3.4
 ======
 + bump version for build supporting gs:// urls
++ dont error on regions larger than chromosome.
 
 v0.3.3
 ======
