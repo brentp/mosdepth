@@ -1,3 +1,7 @@
+v0.3.5
+======
++ fix bug with summary min for regions (#207 thanks to Xavier for supplying test-case)
+
 v0.3.4
 ======
 + bump version for build supporting gs:// urls

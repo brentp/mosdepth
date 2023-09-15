@@ -577,6 +577,12 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     var fd4:D4
   var fbase: BGZI
 
+  # use clear to set min depth to uint32.high
+  chrom_region_stat.clear()
+  chrom_stat.clear()
+  global_region_stat.clear()
+  global_stat.clear()
+
   var region_distribution = new_seq[int64](1000)
   var global_distribution = new_seq[int64](1000)
 
@@ -775,7 +781,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.3.4"
+  let version = "mosdepth 0.3.5"
   let env_fasta = getEnv("REF_PATH")
   var doc = format("""
   $version

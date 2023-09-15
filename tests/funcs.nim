@@ -1,8 +1,21 @@
 import unittest
 import mosdepth
+import depthstat
 import os
 
 suite "mosdepth-suite":
+
+  test "depthstat min":
+      var d = newSeq[int32]()
+      var t = newDepthStat(d)
+      check t.min_depth > 0
+
+      var dd: depth_stat
+      # "not that this always starts as 0 so we must set clear to increase it"
+      check dd.min_depth == 0
+      dd.clear()
+      check dd.min_depth > 0
+
   test "test-quantize-args":
 
     var rs = get_quantize_args(":1")
