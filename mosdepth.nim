@@ -822,6 +822,8 @@ Other options:
   -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
+  -l --min_len <min_len>        minimum fragment length. reads with a smaller template length than this are ignored [default: 0]
+  -u --max_len <max_len>        maximum fragment length. reads with a larger template length than this are ignored. [default: -1]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
@@ -838,6 +840,11 @@ Other options:
     quit "error parsing arguments"
 
   let mapq = S.parse_int($args["--mapq"])
+  let min_len = S.parse_int($args["--min_len"])
+  var max_len = S.parse_int($args["--max_len"])
+  if max_len < 0:
+    let max_len = int.high
+  
   var
     region: string
     thresholds: seq[int] = threshold_args($args["--thresholds"])
@@ -871,7 +878,7 @@ Other options:
     stderr.write_line("[mosdepth] error alignment file must be indexed")
     quit(2)
 
-  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int
+  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int or SamField.SAM_TLEN.int
   if not fast_mode:
       opts = opts or SamField.SAM_QNAME.int or SamField.SAM_RNEXT.int or SamField.SAM_PNEXT.int #or SamField.SAM_TLEN.int
 
@@ -882,4 +889,4 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median, use_d4=use_d4)
+  main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median, use_d4=use_d4)
