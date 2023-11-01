@@ -253,7 +253,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
       arr.init(int(tgt.length+1))
       found = true
     if int(rec.mapping_quality) < mapq: continue
-    if int(abs(rec.tlen)) < min_len or int(abs(rec.tlen)) > max_len: continue
+    if int(abs(rec.isize)) < min_len or int(abs(rec.isize)) > max_len: continue
     if (rec.flag and eflag) != 0:
       continue
     if iflag != 0 and ((rec.flag and iflag) == 0):
