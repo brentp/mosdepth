@@ -822,8 +822,8 @@ Other options:
   -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
-  -l --min_len <min_len>        minimum fragment length. reads with a smaller insert size than this are ignored [default: 0]
-  -u --max_len <max_len>        maximum fragment length. reads with a larger insert size than this are ignored. [default: -1]
+  -l --min_len <min_len>        minimum insert size. reads with a smaller insert size than this are ignored [default: 0]
+  -u --max_len <max_len>        maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
