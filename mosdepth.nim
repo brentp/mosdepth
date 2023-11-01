@@ -229,7 +229,7 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, min_len:int= -1, max_len:int=int.high, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -253,6 +253,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
       arr.init(int(tgt.length+1))
       found = true
     if int(rec.mapping_quality) < mapq: continue
+    if int(abs(rec.tlen)) < min_len or int(abs(rec.tlen)) > max_len: continue
     if (rec.flag and eflag) != 0:
       continue
     if iflag != 0 and ((rec.flag and iflag) == 0):
