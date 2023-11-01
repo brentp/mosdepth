@@ -545,7 +545,7 @@ proc to_tuples(targets:seq[Target]): seq[tuple[name:string, length:int]] =
   for i, t in targets:
     result[i] = (t.name, t.length.int)
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
           fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false, use_d4:bool=false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
@@ -639,7 +639,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     if skip_per_base and thresholds.len == 0 and quantize.len == 0 and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode)
+    var tid = coverage(bam, arr, rchrom, mapq, min_len, max_len, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
