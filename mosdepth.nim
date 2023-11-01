@@ -843,7 +843,7 @@ Other options:
   let min_len = S.parse_int($args["--min_len"])
   var max_len = S.parse_int($args["--max_len"])
   if max_len < 0:
-    let max_len = int.high
+    max_len = int.high
   
   var
     region: string
