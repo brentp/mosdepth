@@ -822,8 +822,8 @@ Other options:
   -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
   -q --quantize <segments>      write quantized output see docs for description.
   -Q --mapq <mapq>              mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
-  -l --min_len <min_len>        minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
-  -u --max_len <max_len>        maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
+  -l --min-len <min-len>        minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
+  -u --max-len <max-len>        maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
   -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
                                 least threshold bases. Specify multiple integer values separated
                                 by ','.
@@ -840,8 +840,8 @@ Other options:
     quit "error parsing arguments"
 
   let mapq = S.parse_int($args["--mapq"])
-  let min_len = S.parse_int($args["--min_len"])
-  var max_len = S.parse_int($args["--max_len"])
+  let min_len = S.parse_int($args["--min-len"])
+  var max_len = S.parse_int($args["--max-len"])
   if max_len < 0:
     max_len = int.high
   
