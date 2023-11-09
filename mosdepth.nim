@@ -817,19 +817,19 @@ Common Options:
 
 Other options:
 
-  -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
-  -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
-  -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
-  -q --quantize <segments>      write quantized output see docs for description.
-  -Q --mapq <mapq>              mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
-  -l --min-len <min-len>        minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
-  -u --max-len <max-len>        maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
-  -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
-                                least threshold bases. Specify multiple integer values separated
-                                by ','.
-  -m --use-median               output median of each region (in --by) instead of mean.
-  -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
-  -h --help                     show help
+  -F --flag <FLAG>                  exclude reads with any of the bits in FLAG set [default: 1796]
+  -i --include-flag <FLAG>          only include reads with any of the bits in FLAG set. default is unset. [default: 0]
+  -x --fast-mode                    dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
+  -q --quantize <segments>          write quantized output see docs for description.
+  -Q --mapq <mapq>                  mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
+  -l --min-frag-len <min-frag-len>  minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
+  -u --max-frag-len <max-frag-len>  maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
+  -T --thresholds <thresholds>      for each interval in --by, write number of bases covered by at
+                                    least threshold bases. Specify multiple integer values separated
+                                    by ','.
+  -m --use-median                   output median of each region (in --by) instead of mean.
+  -R --read-groups <string>         only calculate depth for these comma-separated read groups IDs.
+  -h --help                         show help
   """
 
   var args: Table[string, Value]
@@ -840,10 +840,13 @@ Other options:
     quit "error parsing arguments"
 
   let mapq = S.parse_int($args["--mapq"])
-  let min_len = S.parse_int($args["--min-len"])
-  var max_len = S.parse_int($args["--max-len"])
+  let min_len = S.parse_int($args["--min-frag-len"])
+  var max_len = S.parse_int($args["--max-frag-len"])
   if max_len < 0:
     max_len = int.high
+  if max_len < min_len:
+    stderr.write_line("[mosdepth] error --max-frag-len was lower than --min-frag-len.")
+    quit(2)
   
   var
     region: string
