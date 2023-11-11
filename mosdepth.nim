@@ -229,7 +229,7 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int= -1, min_len:int= -1, max_len:int=int.high, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -253,6 +253,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, mapq:int=
       arr.init(int(tgt.length+1))
       found = true
     if int(rec.mapping_quality) < mapq: continue
+    if int(abs(rec.isize)) < min_len or int(abs(rec.isize)) > max_len: continue
     if (rec.flag and eflag) != 0:
       continue
     if iflag != 0 and ((rec.flag and iflag) == 0):
@@ -544,7 +545,7 @@ proc to_tuples(targets:seq[Target]): seq[tuple[name:string, length:int]] =
   for i, t in targets:
     result[i] = (t.name, t.length.int)
 
-proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
+proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
           fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false, use_d4:bool=false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
@@ -638,7 +639,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, eflag: uint16, iflag: uint16
     if skip_per_base and thresholds.len == 0 and quantize.len == 0 and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, mapq, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode)
+    var tid = coverage(bam, arr, rchrom, mapq, min_len, max_len, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
@@ -816,17 +817,19 @@ Common Options:
 
 Other options:
 
-  -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
-  -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
-  -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
-  -q --quantize <segments>      write quantized output see docs for description.
-  -Q --mapq <mapq>              mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
-  -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
-                                least threshold bases. Specify multiple integer values separated
-                                by ','.
-  -m --use-median               output median of each region (in --by) instead of mean.
-  -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
-  -h --help                     show help
+  -F --flag <FLAG>                  exclude reads with any of the bits in FLAG set [default: 1796]
+  -i --include-flag <FLAG>          only include reads with any of the bits in FLAG set. default is unset. [default: 0]
+  -x --fast-mode                    dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
+  -q --quantize <segments>          write quantized output see docs for description.
+  -Q --mapq <mapq>                  mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
+  -l --min-frag-len <min-frag-len>  minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
+  -u --max-frag-len <max-frag-len>  maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
+  -T --thresholds <thresholds>      for each interval in --by, write number of bases covered by at
+                                    least threshold bases. Specify multiple integer values separated
+                                    by ','.
+  -m --use-median                   output median of each region (in --by) instead of mean.
+  -R --read-groups <string>         only calculate depth for these comma-separated read groups IDs.
+  -h --help                         show help
   """
 
   var args: Table[string, Value]
@@ -837,6 +840,14 @@ Other options:
     quit "error parsing arguments"
 
   let mapq = S.parse_int($args["--mapq"])
+  let min_len = S.parse_int($args["--min-frag-len"])
+  var max_len = S.parse_int($args["--max-frag-len"])
+  if max_len < 0:
+    max_len = int.high
+  if max_len < min_len:
+    stderr.write_line("[mosdepth] error --max-frag-len was lower than --min-frag-len.")
+    quit(2)
+  
   var
     region: string
     thresholds: seq[int] = threshold_args($args["--thresholds"])
@@ -870,7 +881,7 @@ Other options:
     stderr.write_line("[mosdepth] error alignment file must be indexed")
     quit(2)
 
-  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int
+  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int or SamField.SAM_TLEN.int
   if not fast_mode:
       opts = opts or SamField.SAM_QNAME.int or SamField.SAM_RNEXT.int or SamField.SAM_PNEXT.int #or SamField.SAM_TLEN.int
 
@@ -881,4 +892,4 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median, use_d4=use_d4)
+  main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median, use_d4=use_d4)

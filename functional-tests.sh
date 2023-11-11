@@ -58,6 +58,26 @@ assert_exit_code 0
 assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
 assert_equal "MT	0	16569	0.00" "$(zgrep ^MT t.regions.bed.gz)"
 
+
+# fragment length filtering
+run length_filter $exe t tests/ovl.bam --min-frag-len 80 --max-frag-len 80
+assert_exit_code 0
+assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
+assert_equal "MT 0 80 1 MT 80 16569 0 " "$(zgrep ^MT t.per-base.bed.gz | tr -s '[:space:]' ' ')"
+
+run length_filter $exe t tests/ovl.bam --min-frag-len 81
+assert_exit_code 0
+assert_equal "MT        0       16569   0" "$(zgrep ^MT t.per-base.bed.gz)"
+
+run length_filter $exe t tests/ovl.bam --max-frag-len 79
+assert_exit_code 0
+assert_equal "MT        0       16569   0" "$(zgrep ^MT t.per-base.bed.gz)"
+
+run bad_frag_len_filter $exe t tests/ovl.bam --min-frag-len 10 --max-frag-len 9
+assert_in_stderr "--max-frag-len was lower than --min-frag-len."
+assert_exit_code 1
+
+
 unset MOSDEPTH_Q0
 unset MOSDEPTH_Q1
 unset MOSDEPTH_Q2
