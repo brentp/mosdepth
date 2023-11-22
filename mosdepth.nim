@@ -498,7 +498,7 @@ proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int],
   if tid == -2:
     for i in thresholds:
       line.add("\t0")
-    discard fh.write_interval(line, region.chrom, start, stop)
+    doAssert fh.write_interval(line, region.chrom, start, stop) >= 0
     return
 
   var counts = new_seq[int](len(thresholds))
@@ -513,13 +513,13 @@ proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int],
 
   for count in counts:
     line.add("\t" & intToStr(count))
-  discard fh.write_interval(line, region.chrom, start, stop)
+  doAssert fh.write_interval(line, region.chrom, start, stop) >= 0
 
 proc write_header(fh:BGZI, thresholds: seq[int]) =
-  discard fh.bgz.write("#chrom	start	end	region")
+  doAssert fh.bgz.write("#chrom	start	end	region") >= 0
   for threshold in thresholds:
-    discard fh.bgz.write("\t" & intToStr(threshold) & "X")
-  discard fh.bgz.write("\n")
+    doAssert fh.bgz.write("\t" & intToStr(threshold) & "X") >= 0
+  doAssert fh.bgz.write("\n") >= 0
 
 proc get_min_levels(targets: seq[Target]): int =
   # determine how many levels are needed to store the data given
@@ -658,7 +658,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
         else:
           line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
-        discard fregion.write_interval(line, target.name, int(r.start), int(r.stop))
+        doAssert fregion.write_interval(line, target.name, int(r.start), int(r.stop)) >= 0
         line = line[0..<0]
         if tid != -2:
           if region.isdigit: #stores the aggregated coverage for each region when working with even windows across the genome
@@ -694,7 +694,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
           if use_d4:
             fd4.write(target.name, @[Interval(left: 0'u32, right: target.length.uint32, value: 0'i32)])
         else:
-          discard fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length))
+          doAssert fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length)) >= 0
       else:
         var write_fbase = true
         when defined(d4):
@@ -713,15 +713,15 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
             fastIntToStr(p.stop.int32, line, line.len)
             line.add('\t')
             fastIntToStr(p.value.int32, line, line.len)
-            discard fbase.write_interval(line, target.name, p.start, p.stop)
+            doAssert fbase.write_interval(line, target.name, p.start, p.stop) >= 0
     if quantize.len != 0:
       if tid == -2 and quantize[0] == 0:
         var lookup = make_lookup(quantize)
-        discard fquantize.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t" & lookup[0], target.name, 0, int(target.length))
+        doAssert fquantize.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t" & lookup[0], target.name, 0, int(target.length)) >= 0
       else:
         if tid == -2: continue
         for p in gen_quantized(quantize, arr):
-            discard fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop)
+            doAssert fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop) >= 0
 
   write_summary("total", global_stat, fh_summary)
   if region != "":
@@ -782,7 +782,7 @@ when(isMainModule):
   when not defined(release) and not defined(lto):
     stderr.write_line "[mosdepth] WARNING: built in debug mode; will be slow"
 
-  let version = "mosdepth 0.3.5"
+  let version = "mosdepth 0.3.6"
   let env_fasta = getEnv("REF_PATH")
   var doc = format("""
   $version
