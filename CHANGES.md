@@ -1,3 +1,8 @@
+v0.3.6
+======
++ allow filtering on fragment length thanks @LudvigOlsen for implementing! (#214)
++ fix bug where empty chromosomes are not reported as having 0 depth (#216)
+
 v0.3.5
 ======
 + fix bug with summary min for regions (#207 thanks to Xavier for supplying test-case)
