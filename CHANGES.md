@@ -1,3 +1,7 @@
+v0.3.7
+======
++ support CRAM v3.1. only updates htslib that binary is built with to v1.19.1 (#224)
+
 v0.3.6
 ======
 + allow filtering on fragment length thanks @LudvigOlsen for implementing! (#214)
