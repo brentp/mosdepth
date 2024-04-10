@@ -83,11 +83,10 @@ jobs:
       with:
         version: ${{ matrix.version }}
 
-    - uses: actions-rs/toolchain@v1
+    - name: Rust Toolchain
+      uses: dtolnay/rust-toolchain@nightly
       with:
         toolchain: stable
-    - uses: actions-rs/cargo@v1
-
 
     # Build and Test
     - name: Build test executable
