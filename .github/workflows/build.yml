@@ -71,6 +71,7 @@ jobs:
       run: |
         #export HTSLIB=system
         git clone https://github.com/38/d4-format
+        echo 'location' >> ~/.curlrc # https://github.com/38/d4-format/pull/77#issuecomment-2044438359
         cd d4-format
         cargo build --release --all-features --package=d4binding
         sudo cp target/release/libd4binding.* /usr/local/lib
