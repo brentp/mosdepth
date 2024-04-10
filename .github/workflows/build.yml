@@ -11,33 +11,33 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-10.15]
+        os: [ubuntu-20.04, macos-13]
         version:
         - stable
         - devel
 
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     # Caching
     - name: Cache choosenim
       id: cache-choosenim
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.choosenim
         key: ${{ runner.os }}-choosenim-stable
 
     - name: Cache nimble
       id: cache-nimble
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.nimble
         key: ${{ runner.os }}-nimble-stable
 
     - name: Cache htslib
       id: cache-htslib
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: $HOME/htslib
         key: ${{ runner.os }}-htslib-1.10
@@ -78,7 +78,7 @@ jobs:
         sudo ldconfig || true
 
 
-    - uses: iffy/install-nim@v4.1.1
+    - uses: iffy/install-nim@v5
       with:
         version: ${{ matrix.version }}
 
@@ -110,7 +110,7 @@ jobs:
 
     - name: Upload Artifact
       if: success()
-      uses: actions/upload-artifact@v1.0.0
+      uses: actions/upload-artifact@v4
       with:
         name: mosdepth_${{ matrix.os }}_executable
         path: bin/
