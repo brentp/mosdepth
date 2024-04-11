@@ -2,42 +2,47 @@
 name: Build
 
 on: 
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
 
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-18.04, macos-10.15]
+        os: [ubuntu-20.04, macos-13]
         version:
-        - stable
-        - devel
+        - 1.6.18
+        - 2.0.2
 
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     # Caching
     - name: Cache choosenim
       id: cache-choosenim
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.choosenim
         key: ${{ runner.os }}-choosenim-stable
 
     - name: Cache nimble
       id: cache-nimble
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.nimble
         key: ${{ runner.os }}-nimble-stable
 
     - name: Cache htslib
       id: cache-htslib
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: $HOME/htslib
         key: ${{ runner.os }}-htslib-1.10
@@ -71,6 +76,7 @@ jobs:
       run: |
         #export HTSLIB=system
         git clone https://github.com/38/d4-format
+        echo 'location' >> ~/.curlrc # https://github.com/38/d4-format/pull/77#issuecomment-2044438359
         cd d4-format
         cargo build --release --all-features --package=d4binding
         sudo cp target/release/libd4binding.* /usr/local/lib
@@ -78,15 +84,14 @@ jobs:
         sudo ldconfig || true
 
 
-    - uses: iffy/install-nim@v4.1.1
+    - uses: iffy/install-nim@v5
       with:
         version: ${{ matrix.version }}
 
-    - uses: actions-rs/toolchain@v1
+    - name: Rust Toolchain
+      uses: dtolnay/rust-toolchain@nightly
       with:
         toolchain: stable
-    - uses: actions-rs/cargo@v1
-
 
     # Build and Test
     - name: Build test executable
@@ -110,7 +115,7 @@ jobs:
 
     - name: Upload Artifact
       if: success()
-      uses: actions/upload-artifact@v1.0.0
+      uses: actions/upload-artifact@v4
       with:
         name: mosdepth_${{ matrix.os }}_executable
         path: bin/
