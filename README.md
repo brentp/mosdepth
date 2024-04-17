@@ -25,7 +25,7 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ## usage
 
 ```
-mosdepth 0.3.4
+mosdepth 0.3.6
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
@@ -33,8 +33,7 @@ Arguments:
 
   <prefix>       outputs: `{prefix}.mosdepth.global.dist.txt`
                           `{prefix}.mosdepth.summary.txt`
-                          `{prefix}.mosdepth.region.dist.txt` (if --by is specified)
-                          `{prefix}.per-base.bed.gz|per-base.d4` (unless -n/--no-per-base is specified)
+                          `{prefix}.per-base.bed.gz` (unless -n/--no-per-base is specified)
                           `{prefix}.regions.bed.gz` (if --by is specified)
                           `{prefix}.quantized.bed.gz` (if --quantize is specified)
                           `{prefix}.thresholds.bed.gz` (if --thresholds is specified)
@@ -43,29 +42,29 @@ Arguments:
 
 Common Options:
 
-  -t --threads <threads>     number of BAM decompression threads. (use 4 or fewer) [default: 0]
+  -t --threads <threads>     number of BAM decompression threads [default: 0]
   -c --chrom <chrom>         chromosome to restrict depth calculation.
   -b --by <bed|window>       optional BED file or (integer) window-sizes.
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible.
-  -f --fasta <fasta>         fasta file for use with CRAM files.
-  --d4                       output per-base depth in d4 format. This is much faster.
-
+  -f --fasta <fasta>         fasta file for use with CRAM files [default: ].
+  --d4                       output per-base depth in d4 format.
 
 Other options:
 
-  -F --flag <FLAG>              exclude reads with any of the bits in FLAG set [default: 1796]
-  -i --include-flag <FLAG>      only include reads with any of the bits in FLAG set. default is unset. [default: 0]
-  -x --fast-mode                dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
-  -q --quantize <segments>      write quantized output see docs for description.
-  -Q --mapq <mapq>              mapping quality threshold. reads with a mapping quality less than this are ignored [default: 0]
-  -T --thresholds <thresholds>  for each interval in --by, write number of bases covered by at
-                                least threshold bases. Specify multiple integer values separated
-                                by ','.
-  -m --use-median               output median of each region (in --by) instead of mean.
-  -R --read-groups <string>     only calculate depth for these comma-separated read groups IDs.
-  -h --help                     show help
-
+  -F --flag <FLAG>                  exclude reads with any of the bits in FLAG set [default: 1796]
+  -i --include-flag <FLAG>          only include reads with any of the bits in FLAG set. default is unset. [default: 0]
+  -x --fast-mode                    dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
+  -q --quantize <segments>          write quantized output see docs for description.
+  -Q --mapq <mapq>                  mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
+  -l --min-frag-len <min-frag-len>  minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
+  -u --max-frag-len <max-frag-len>  maximum insert size. reads with a larger insert size than this are ignored. [default: -1]
+  -T --thresholds <thresholds>      for each interval in --by, write number of bases covered by at
+                                    least threshold bases. Specify multiple integer values separated
+                                    by ','.
+  -m --use-median                   output median of each region (in --by) instead of mean.
+  -R --read-groups <string>         only calculate depth for these comma-separated read groups IDs.
+  -h --help                         show help
 ```
 If you use mosdepth please cite [the publication in bioinformatics](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
 

@@ -15,12 +15,10 @@ proc initCountStat*[T](size:int=32768): CountStat[T] =
 
 proc add*[T](c: var CountStat, value: T) {.inline.} =
   c.n.inc
-  if value.int > c.counts.high.int:
-    c.counts[c.counts.high].inc
-  elif value < 0:
+  if value < 0:
     raise newException(IndexDefect, "error setting negative depth value:" & $value)
   else:
-    c.counts[value].inc
+    c.counts[min(c.counts.high.T, value)].inc
 
 proc median*[T](c: CountStat[T]): int {.inline.} =
   var stop_n = int(0.5 + c.n.float64 * 0.5)
