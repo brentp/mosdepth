@@ -212,10 +212,14 @@ proc region_line_to_region*(region: string): region_t =
       result.chrom = w
     inc(i)
 
-proc get_tid(tgts: seq[hts.Target], chrom: string): int =
+proc get_tid(tgts: seq[hts.Target], chrom: string, last_tid:var int): int =
+  if tgts[last_tid + 1].name == chrom:
+      last_tid = tgts[last_tid + 1].tid
+      return last_tid
   for t in tgts:
     if t.name == chrom:
-      return t.tid
+      last_tid = t.tid
+      return last_tid
 
 proc init(arr: var coverage_t, tlen:int) =
   ## try to re-use the array.
@@ -229,7 +233,7 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: seq[Target], mapq:int= -1, min_len:int= -1, max_len:int=int.high, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: seq[Target], mapq:int= -1, min_len:int= -1, max_len:int=int.high, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false, last_tid: var int = -1): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -240,7 +244,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: 
     seen = newTable[string, Record]()
     has_read_groups = read_groups.len > 0
 
-  var tid = if region != nil: get_tid(targets, region.chrom) else: -1
+  var tid = if region != nil: get_tid(targets, region.chrom, last_tid) else: -1
   if tid == -1:
     return -1
 
@@ -631,6 +635,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
   var cs = initCountStat[uint32](size=if use_median: 65536 else: 0)
 
   var ii = 0
+  var last_tid = -1
 
   for target in sub_targets:
     if ii > 0 and ii mod 100_000 == 0:
@@ -643,7 +648,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     if skip_per_base and thresholds.len == 0 and quantize.len == 0 and bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, targets, mapq, min_len, max_len, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode)
+    var tid = coverage(bam, arr, rchrom, targets, mapq, min_len, max_len, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode, last_tid=last_tid)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
