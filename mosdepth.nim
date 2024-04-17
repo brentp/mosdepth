@@ -416,7 +416,7 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
     if irev > 300 and v == 0: continue
     cum += float64(v) / float64(sum)
     if cum < 8e-5: continue
-    fh.write_line(chrom, "\t", $irev & "\t" & su.format_float(cum, ffDecimal, precision=precision))
+    fh.write_line(chrom, "\t", irev, "\t", su.format_float(cum, ffDecimal, precision=precision))
   # reverse it back because we use to update the full genome
   reverse(d)
 
@@ -586,8 +586,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
   global_region_stat.clear()
   global_stat.clear()
 
-  var region_distribution = new_seq[int64](1000)
-  var global_distribution = new_seq[int64](1000)
+  var region_distribution = new_seq[int64](512)
+  var global_distribution = new_seq[int64](512)
 
   if $args["--read-groups"] != "nil":
     for r in ($args["--read-groups"]).split(','):
