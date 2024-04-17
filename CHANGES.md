@@ -1,3 +1,7 @@
+v0.3.8
+======
++ mosdepth is now much faster on bams/crams with a large number of contigs (#229)
+
 v0.3.7
 ======
 + support CRAM v3.1. only updates htslib that binary is built with to v1.19.1 (#224)
