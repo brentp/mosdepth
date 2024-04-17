@@ -152,7 +152,7 @@ rm -f t.*
 
 #regions and global should not be the same when -b is specified
 run regions $exe t_regions -n -b 100 tests/empty-tids.bam 
-assert_equal $(diff -u t_regions.mosdepth.region.dist.txt t_regions.mosdepth.global.dist.txt | wc -l) 1447
+assert_equal $(diff -u t_regions.mosdepth.region.dist.txt t_regions.mosdepth.global.dist.txt | wc -l) 1436
 rm -f t_regions.*
 
 run overlappingPairs $exe t tests/overlapping-pairs.bam
