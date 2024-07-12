@@ -504,7 +504,6 @@ proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int],
     return
 
   var counts = new_seq[int](len(thresholds))
-  shallow(arr)
 
   # iterate over the region and count bases >= request cutoffs.
   for v in arr[start..<stop]:
@@ -630,7 +629,6 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
       window = uint32(S.parse_int(region))
     else:
       bed_regions = bed_to_table(region)
-  shallow(arr)
 
   var cs = initCountStat[uint32](size=if use_median: 65536 else: 0)
 
