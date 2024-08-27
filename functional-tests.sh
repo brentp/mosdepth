@@ -12,8 +12,8 @@ set -o nounset
 
 
 set -e
-nim c --boundChecks:on -x:on mosdepth.nim
-nim c -r tests/funcs.nim
+nim c --boundChecks:on -x:on -d:useSysAssert -d:useGcAssert --lineDir:on --debuginfo --mm:refc mosdepth.nim
+nim c -x:on --mm:refc -d:useSysAssert -d:useGcAssert --lineDir:on --debuginfo -r tests/funcs.nim
 set +e
 exe=./mosdepth
 bam=/data/human/NA12878.subset.bam

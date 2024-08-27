@@ -60,8 +60,8 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         cd
-        git clone --recursive https://github.com/samtools/htslib.git
-        cd htslib && git checkout 1.11 && autoheader && autoconf && ./configure --enable-libcurl
+        git clone -b 1.18 --recursive https://github.com/samtools/htslib.git
+        cd htslib && autoheader && autoconf && ./configure --enable-libcurl
         sudo make -j 4 install
         sudo ldconfig
         #echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
@@ -71,6 +71,11 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install htslib
+
+    - name: Set DYLD_LIBRARY_PATH
+      if: runner.os == 'macOS'
+      run: |
+          echo "DYLD_LIBRARY_PATH=$(brew --prefix htslib)/lib" >> $GITHUB_ENV
 
     - name: Install d4 
       run: |
@@ -101,7 +106,7 @@ jobs:
       run: chmod +x mosdepth && mkdir bin && cp mosdepth bin/mosdepth_debug_${{ matrix.os }}
 
     - name: "Build and Copy release binary"
-      run: nim c -d:danger -d:release -o:bin/mosdepth_${{ matrix.os }} mosdepth
+      run: nim c --mm:refc -d:danger -d:release -o:bin/mosdepth_${{ matrix.os }} mosdepth
     
     - name: Functional Tests
       env:
@@ -117,5 +122,5 @@ jobs:
       if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: mosdepth_${{ matrix.os }}_executable
+        name: mosdepth_${{ matrix.os }}_nim${{ matrix.version }}_executable
         path: bin/
