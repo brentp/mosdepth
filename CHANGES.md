@@ -1,3 +1,7 @@
+v0.3.9
+======
++ fix d4 output (#237)
+
 v0.3.8
 ======
 + mosdepth is now much faster on bams/crams with a large number of contigs (#229)
