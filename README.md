@@ -4,9 +4,7 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing
 
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
-[![Build](https://github.com/brentp/mosdepth/workflows/Build/badge.svg?branch=master)](https://github.com/brentp/mosdepth/actions?query=workflow%3ABuild)
-
-[![citation](https://img.shields.io/badge/cite-open%20access-orange.svg)](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
+[![Build](https://github.com/brentp/mosdepth/actions/workflows/build.yml/badge.svg)](https://github.com/brentp/mosdepth/actions/workflows/build.yml) [![citation](https://img.shields.io/badge/cite-open%20access-orange.svg)](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
 
 `mosdepth` can output:
 
