@@ -1,3 +1,7 @@
+v0.3.10
+=======
++ write sfi index in d4 files (#243)
+
 v0.3.9
 ======
 + fix d4 output (#237)
