@@ -604,7 +604,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     if use_d4:
       when defined(d4):
         doAssert fd4.open(prefix & ".per-base.d4", mode="w"), &"[mosdepth] error opening {prefix}.per-base.d4"
-        fd4.set_chromosomes(targets.to_tuples)
+        fd4.set_chromosomes(sub_targets.to_tuples)
 
     else:
       fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
