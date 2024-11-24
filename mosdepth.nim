@@ -762,6 +762,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
   when defined(d4):
     if use_d4:
       fd4.close
+      doAssert index_build_sfi(prefix & ".per-base.d4")
 
   if fbase != nil and close(fbase) != 0:
       stderr.write_line("[mosdepth] error writing per-base file\n")
