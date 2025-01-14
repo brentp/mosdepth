@@ -48,7 +48,7 @@ proc to_coverage(c: var coverage_t) =
   # to_coverage converts from an array of start/end inc/decs to actual coverage.
   c.cumsum()
 
-iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
+iterator gen_depths(arr: coverage_t, offset: int = 0, istop: int = 0): depth_t =
   # given `arr` with values in each index indicating the number of reads
   # starting or ending at that location, generate depths.
   # offset is only used for a region like chr6:200-30000, in which case, offset will be 200
@@ -83,12 +83,12 @@ iterator gen_depths(arr: coverage_t, offset: int=0, istop: int=0): depth_t =
 
   # this is horrible, but it works. we don't know
   # if we've already printed the record on not.
-  elif  last_i != i:
-      yield (last_i - 1, i, last_depth)
+  elif last_i != i:
+    yield (last_i - 1, i, last_depth)
   else:
-      yield (last_i, i, last_depth)
+    yield (last_i, i, last_depth)
 
-proc linear_search*(q:int, vals:seq[int], idx: ptr int) {.inline.} =
+proc linear_search*(q: int, vals: seq[int], idx: ptr int) {.inline.} =
   if q < vals[0] or q > vals[vals.high]:
     idx[] = -1
     return
@@ -134,7 +134,7 @@ iterator gen_quantized(quants: seq[int], arr: coverage_t): depth_s {.inline.} =
       yield (last_pos, len(arr)-1, lookup[last_quantized])
 
 proc pair_sort(a, b: pair): int =
-   return a.pos - b.pos
+  return a.pos - b.pos
 
 iterator gen_start_ends(c: Cigar, ipos: int): pair {.inline.} =
   # generate start, end pairs given a cigar string and a position offset.
@@ -162,9 +162,10 @@ iterator gen_start_ends(c: Cigar, ipos: int): pair {.inline.} =
 
 proc inc_coverage(c: Cigar, ipos: int = 0, arr: var seq[int32]) {.inline.} =
   for p in gen_start_ends(c, ipos):
-      arr[p.pos] += p.value
+    arr[p.pos] += p.value
 
-iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Target]): Record {.inline.} =
+iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[
+    hts.Target]): Record {.inline.} =
   if region == nil:
     for r in bam:
       yield r
@@ -179,31 +180,31 @@ iterator regions(bam: hts.Bam, region: region_t, tid: int, targets: seq[hts.Targ
       stderr.write_line("[mosdepth]", region.chrom, " not found")
 
 proc bed_line_to_region(line: string): region_t =
-   var
-     cse = line.split('\t', 5)
+  var
+    cse = line.split('\t', 5)
 
-   if len(cse) < 3:
-     stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
-     return nil
-   var
-     s = S.parse_int(cse[1])
-     e = S.parse_int(cse[2])
-     reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
-   doAssert s <= e, "[slivar] ERROR: start > end in bed line:" & line
-   if len(cse) > 3:
-     reg.name = cse[3].strip()
-   return reg
+  if len(cse) < 3:
+    stderr.write_line("[mosdepth] skipping bad bed line:", line.strip())
+    return nil
+  var
+    s = S.parse_int(cse[1])
+    e = S.parse_int(cse[2])
+    reg = region_t(chrom: cse[0], start: uint32(s), stop: uint32(e))
+  doAssert s <= e, "[slivar] ERROR: start > end in bed line:" & line
+  if len(cse) > 3:
+    reg.name = cse[3].strip()
+  return reg
 
 proc region_line_to_region*(region: string): region_t =
   if region == "" or region == "nil":
     return nil
   if ':' notin region:
-    return region_t(chrom:region)
+    return region_t(chrom: region)
   result = region_t()
 
   var i = 0
   # rsplit yields strings in reverse order
-  for w in region.rsplit({':', '-'}, maxsplit=2):
+  for w in region.rsplit({':', '-'}, maxsplit = 2):
     if i == 1:
       result.start = uint32(S.parse_int(w)) - 1
     elif i == 0:
@@ -212,16 +213,16 @@ proc region_line_to_region*(region: string): region_t =
       result.chrom = w
     inc(i)
 
-proc get_tid(tgts: seq[hts.Target], chrom: string, last_tid:var int): int =
+proc get_tid(tgts: seq[hts.Target], chrom: string, last_tid: var int): int =
   if tgts[last_tid + 1].name == chrom:
-      last_tid = tgts[last_tid + 1].tid
-      return last_tid
+    last_tid = tgts[last_tid + 1].tid
+    return last_tid
   for t in tgts:
     if t.name == chrom:
       last_tid = t.tid
       return last_tid
 
-proc init(arr: var coverage_t, tlen:int) =
+proc init(arr: var coverage_t, tlen: int) =
   ## try to re-use the array.
   if len(arr) != int(tlen):
     # must create a new array in some cases.
@@ -233,7 +234,11 @@ proc init(arr: var coverage_t, tlen:int) =
       arr.set_len(int(tlen))
   zeroMem(arr[0].addr, len(arr) * sizeof(arr[0]))
 
-proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: seq[Target], mapq:int= -1, min_len:int= -1, max_len:int=int.high, eflag: uint16=1796, iflag:uint16=0, read_groups:seq[string]=(@[]), fast_mode:bool=false, last_tid: var int = -1): int =
+proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
+    targets: seq[Target], mapq: int = -1, min_len: int = -1,
+    max_len: int = int.high, eflag: uint16 = 1796, iflag: uint16 = 0,
+    read_groups: seq[string] = (@[]), fast_mode: bool = false,
+    last_tid: var int = -1): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -266,16 +271,18 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: 
       if t.isNone or not read_groups.contains(t.get):
         continue
     if tgt.tid != rec.b.core.tid:
-        raise newException(OSError, "expected only a single chromosome per query")
+      raise newException(OSError, "expected only a single chromosome per query")
 
     # rec:   --------------
     # mate:             ------------
     # handle overlapping mate pairs.
-    if (not fast_mode) and rec.flag.proper_pair and (not rec.flag.supplementary):
-      if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and 
+    if (not fast_mode) and rec.flag.proper_pair and (
+        not rec.flag.supplementary):
+      if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and
         # First case is partial overlap, second case is complete overlap
-        # For complete overlap we must check if the mate was already seen or not yet
-        ((rec.start < rec.matepos) or (rec.start == rec.mate_pos and not seen.hasKey(rec.qname))):
+          # For complete overlap we must check if the mate was already seen or not yet
+        ((rec.start < rec.matepos) or (rec.start == rec.mate_pos and
+            not seen.hasKey(rec.qname))):
         var rc = rec.copy()
         seen[rc.qname] = rc
       else:
@@ -302,7 +309,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: 
 
             var ses = sequtils.to_seq(gen_start_ends(rec.cigar, rec.start.int))
             for p in gen_start_ends(mate.cigar, mate.start.int):
-                ses.add(p)
+              ses.add(p)
             alg.sort(ses, pair_sort)
             var pair_depth = 0
             var last_pos = 0
@@ -316,7 +323,8 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: 
                 inc(arr[p.pos])
               pair_depth += p.value
               last_pos = p.pos
-            if pair_depth != 0: echo $rec.qname & ":" & $rec & " " & $mate.qname & ":" & $mate & " " & $pair_depth
+            if pair_depth != 0: echo $rec.qname & ":" & $rec & " " &
+                $mate.qname & ":" & $mate & " " & $pair_depth
     if fast_mode:
       arr[rec.start] += 1
       arr[rec.stop] -= 1
@@ -329,7 +337,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t, targets: 
 
 proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
   var bed_regions = newTable[string, seq[region_t]]()
-  var kstr = kstring_t(l:0, m: 0, s: nil)
+  var kstr = kstring_t(l: 0, m: 0, s: nil)
   var hf = hts_open(cstring(bed), "r")
   while hts_getline(hf, cint(10), addr kstr) > 0:
     if kstr.s[0] == 't' and ($kstr.s).startswith("track "):
@@ -342,28 +350,30 @@ proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
 
   # since it is read into mem, can also well sort.
   for chrom, ivs in bed_regions.mpairs:
-      sort(ivs, proc (a, b: region_t): int = int(a.start) - int(b.start))
+    sort(ivs, proc (a, b: region_t): int = int(a.start) - int(b.start))
 
   hts.free(kstr.s)
   return bed_regions
 
 iterator window_gen(window: uint32, t: hts.Target): region_t =
-  var start:uint32 = 0
+  var start: uint32 = 0
   while start + window < t.length:
     yield region_t(chrom: t.name, start: start, stop: start + window)
     start += window
   if start != t.length:
     yield region_t(chrom: t.name, start: start, stop: t.length)
 
-iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[string, seq[region_t]]): region_t =
-    if bed_regions == nil:
-      for r in window_gen(window, target): yield r
-    else:
-      if bed_regions.contains(target.name):
-        for r in bed_regions[target.name]: yield r
-        bed_regions.del(target.name)
+iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[
+    string, seq[region_t]]): region_t =
+  if bed_regions == nil:
+    for r in window_gen(window, target): yield r
+  else:
+    if bed_regions.contains(target.name):
+      for r in bed_regions[target.name]: yield r
+      bed_regions.del(target.name)
 
-proc imean(vals: coverage_t, start:uint32, stop:uint32, ms:var CountStat[uint32]): float64 =
+proc imean(vals: coverage_t, start: uint32, stop: uint32, ms: var CountStat[
+    uint32]): float64 =
   if start > uint32(len(vals)):
     return 0
 
@@ -380,11 +390,13 @@ proc imean(vals: coverage_t, start:uint32, stop:uint32, ms:var CountStat[uint32]
 
 const MAX_COVERAGE = int32(400000)
 
-proc inc(d: var seq[int64], coverage: var coverage_t, start:uint32, stop:uint32) =
-  var v:int32
+proc inc(d: var seq[int64], coverage: var coverage_t, start: uint32,
+    stop: uint32) =
+  var v: int32
   var L = int32(d.high)
   if int(start) >= len(coverage):
-    stderr.write_line("[mosdepth] warning requested interval outside of chromosome range:", start, "..", stop)
+    stderr.write_line("[mosdepth] warning requested interval outside of chromosome range:",
+        start, "..", stop)
     return
   var istop = min(stop, uint32(coverage.len))
 
@@ -400,7 +412,7 @@ proc inc(d: var seq[int64], coverage: var coverage_t, start:uint32, stop:uint32)
     if v < 0: continue
     d[v] += 1
 
-proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
+proc write_distribution(chrom: string, d: var seq[int64], fh: File) =
   var sum: int64
   for v in d:
     sum += int64(v)
@@ -416,11 +428,12 @@ proc write_distribution(chrom: string, d: var seq[int64], fh:File) =
     if irev > 300 and v == 0: continue
     cum += float64(v) / float64(sum)
     if cum < 8e-5: continue
-    fh.write_line(chrom, "\t", irev, "\t", su.format_float(cum, ffDecimal, precision=precision))
+    fh.write_line(chrom, "\t", irev, "\t", su.format_float(cum, ffDecimal,
+        precision = precision))
   # reverse it back because we use to update the full genome
   reverse(d)
 
-proc write_summary(region: string, stat: depth_stat, fh:File) =
+proc write_summary(region: string, stat: depth_stat, fh: File) =
   var mean_depth: float64
   if stat.cum_length > 0:
     mean_depth = float64(stat.cum_depth) / float64(stat.cum_length)
@@ -438,7 +451,7 @@ proc write_summary(region: string, stat: depth_stat, fh:File) =
   fh.write_line [region,
                  $stat.cum_length,
                  $stat.cum_depth,
-                 $mean_depth.format_float(ffDecimal, precision=precision),
+                 $mean_depth.format_float(ffDecimal, precision = precision),
                  $stat_min,
                  $stat.max_depth].join("\t")
 
@@ -461,7 +474,7 @@ proc sum_into(afrom: seq[int64], ato: var seq[int64]) =
   for i, d in afrom:
     ato[i] += d
 
-proc get_quantize_args*(qa: string) : seq[int] =
+proc get_quantize_args*(qa: string): seq[int] =
   if qa == "nil":
     return
   var a = qa
@@ -474,7 +487,7 @@ proc get_quantize_args*(qa: string) : seq[int] =
   if a[a.high] == ':':
     a = a & intToStr(high(int))
   try:
-    var qs = map(a.split(':'), proc (s:string): int = return parse_int(s))
+    var qs = map(a.split(':'), proc (s: string): int = return parse_int(s))
     sort(qs, system.cmp[int])
     return qs
   except:
@@ -482,7 +495,8 @@ proc get_quantize_args*(qa: string) : seq[int] =
     quit(2)
 
 
-proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int], region: region_t) =
+proc write_thresholds(fh: BGZI, tid: int, arr: var coverage_t, thresholds: seq[
+    int], region: region_t) =
   # write the number of bases in each region that are >= each threshold.
   if thresholds.len == 0: return
   var
@@ -505,7 +519,7 @@ proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int],
 
   var counts = new_seq[int](len(thresholds))
   when NimMajor < 2:
-      shallow(arr)
+    shallow(arr)
 
   # iterate over the region and count bases >= request cutoffs.
   for v in arr[start..<stop]:
@@ -518,7 +532,7 @@ proc write_thresholds(fh:BGZI, tid:int, arr:var coverage_t, thresholds:seq[int],
     line.add("\t" & intToStr(count))
   doAssert fh.write_interval(line, region.chrom, start, stop) >= 0
 
-proc write_header(fh:BGZI, thresholds: seq[int]) =
+proc write_header(fh: BGZI, thresholds: seq[int]) =
   doAssert fh.bgz.write("#chrom	start	end	region") >= 0
   for threshold in thresholds:
     doAssert fh.bgz.write("\t" & intToStr(threshold) & "X") >= 0
@@ -538,36 +552,37 @@ proc get_min_levels(targets: seq[Target]): int =
     result += 1
     s = s shl 3
 
-proc isdigit(s:string): bool =
+proc isdigit(s: string): bool =
   for c in s:
     if not c.isdigit: return false
   return true
 
-proc to_tuples(targets:seq[Target]): seq[tuple[name:string, length:int]] =
+proc to_tuples(targets: seq[Target]): seq[tuple[name: string, length: int]] =
   result.setLen(targets.len)
   for i, t in targets:
     result[i] = (t.name, t.length.int)
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
-          fast_mode:bool, args: Table[string, docopt.Value], use_median:bool=false, use_d4:bool=false) =
+          fast_mode: bool, args: Table[string, docopt.Value],
+              use_median: bool = false, use_d4: bool = false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
     targets = bam.hdr.targets
     sub_targets = get_targets(targets, chrom)
     read_groups: seq[string]
-    rchrom : region_t
+    rchrom: region_t
     arr: coverage_t
     prefix: string = $(args["<prefix>"])
     skip_per_base = args["--no-per-base"]
     window: uint32 = 0
     bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
-    #fbase: BGZ
+                                                 #fbase: BGZ
     fquantize: BGZI
     fthresholds: BGZI
     fregion: BGZI
-    fh_global_dist:File
-    fh_region_dist:File
+    fh_global_dist: File
+    fh_region_dist: File
     fh_summary: File
     quantize = get_quantize_args($args["--quantize"])
 
@@ -578,7 +593,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     global_stat: depth_stat
 
   when defined(d4):
-    var fd4:D4
+    var fd4: D4
   var fbase: BGZI
 
   # use clear to set min depth to uint32.high
@@ -603,17 +618,20 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     # not call set_threads().
     if use_d4:
       when defined(d4):
-        doAssert fd4.open(prefix & ".per-base.d4", mode="w"), &"[mosdepth] error opening {prefix}.per-base.d4"
+        doAssert fd4.open(prefix & ".per-base.d4", mode = "w"), &"[mosdepth] error opening {prefix}.per-base.d4"
         fd4.set_chromosomes(targets.to_tuples)
 
     else:
-      fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
+      fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true,
+          compression_level = 1, levels = levels)
     #open(fbase, prefix & ".per-base.bed.gz", "w1")
   if quantize.len != 0:
-    fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
+    fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true,
+        compression_level = 1, levels = levels)
 
   if thresholds.len != 0:
-    fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true, compression_level=1, levels=levels)
+    fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true,
+        compression_level = 1, levels = levels)
     fthresholds.write_header(thresholds)
 
   if not open(fh_global_dist, prefix & ".mosdepth.global.dist.txt", fmWrite):
@@ -622,35 +640,44 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
   if not open(fh_summary, prefix & ".mosdepth.summary.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.summary.txt")
 
-  if region != "" and not open(fh_region_dist, prefix & ".mosdepth.region.dist.txt", fmWrite):
+  if region != "" and not open(fh_region_dist, prefix &
+      ".mosdepth.region.dist.txt", fmWrite):
     stderr.write_line("[mosdepth] could not open file:", prefix & ".mosdepth.dist.txt")
 
   if region != "":
-    fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true, levels=levels)
+    fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true,
+        levels = levels)
     if region.isdigit():
       window = uint32(S.parse_int(region))
     else:
       bed_regions = bed_to_table(region)
   when NimMajor < 2:
-      shallow(arr)
+    shallow(arr)
 
-  var cs = initCountStat[uint32](size=if use_median: 65536 else: 0)
+  var cs = initCountStat[uint32](size = if use_median: 65536 else: 0)
 
   var ii = 0
   var last_tid = -1
 
   for target in sub_targets:
     if ii > 0 and ii mod 100_000 == 0:
-        stderr.write_line("[mosdepth] on contig:", ii, ". percent of contigs completed:", su.format_float(100 * ii/sub_targets.len, ffDecimal, precision=2))
+      stderr.write_line("[mosdepth] on contig:", ii,
+          ". percent of contigs completed:", su.format_float(100 *
+          ii/sub_targets.len, ffDecimal, precision = 2))
     ii += 1
-    zeroMem(chrom_global_distribution[0].addr, len(chrom_global_distribution) * sizeof(chrom_global_distribution[0]))
+    zeroMem(chrom_global_distribution[0].addr, len(chrom_global_distribution) *
+        sizeof(chrom_global_distribution[0]))
     if region != "":
-      zeroMem(chrom_region_distribution[0].addr, len(chrom_region_distribution) * sizeof(chrom_region_distribution[0]))
+      zeroMem(chrom_region_distribution[0].addr, len(
+          chrom_region_distribution) * sizeof(chrom_region_distribution[0]))
     # if we can skip per base and there's no regions from this chrom we can avoid coverage calc.
-    if skip_per_base and thresholds.len == 0 and quantize.len == 0 and bed_regions != nil and not bed_regions.contains(target.name):
+    if skip_per_base and thresholds.len == 0 and quantize.len == 0 and
+        bed_regions != nil and not bed_regions.contains(target.name):
       continue
     rchrom = region_t(chrom: target.name)
-    var tid = coverage(bam, arr, rchrom, targets, mapq, min_len, max_len, eflag, iflag, read_groups=read_groups, fast_mode=fast_mode, last_tid=last_tid)
+    var tid = coverage(bam, arr, rchrom, targets, mapq, min_len, max_len, eflag,
+        iflag, read_groups = read_groups, fast_mode = fast_mode,
+        last_tid = last_tid)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
       arr.to_coverage()
@@ -662,18 +689,23 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
       for r in region_gen(window, target, bed_regions):
         if tid != -2:
           me = imean(arr, r.start, r.stop, cs)
-          chrom_region_stat = chrom_region_stat + newDepthStat(arr[r.start..<min(arr.len.uint32, r.stop)])
-        var m = su.format_float(me, ffDecimal, precision=precision)
+          chrom_region_stat = chrom_region_stat + newDepthStat(arr[
+              r.start..<min(arr.len.uint32, r.stop)])
+        var m = su.format_float(me, ffDecimal, precision = precision)
 
         if r.name == "":
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & m)
+          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(
+              r.stop)) & "\t" & m)
         else:
-          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(r.stop)) & "\t" & r.name & "\t" & m)
-        doAssert fregion.write_interval(line, target.name, int(r.start), int(r.stop)) >= 0
+          line.add(starget & intToStr(int(r.start)) & "\t" & intToStr(int(
+              r.stop)) & "\t" & r.name & "\t" & m)
+        doAssert fregion.write_interval(line, target.name, int(r.start), int(
+            r.stop)) >= 0
         line = line[0..<0]
         if tid != -2:
           if region.isdigit: #stores the aggregated coverage for each region when working with even windows across the genome
-            chrom_region_distribution[min(me.toInt,int64(len(chrom_region_distribution))-1)] += 1
+            chrom_region_distribution[min(me.toInt, int64(len(
+                chrom_region_distribution))-1)] += 1
           else: # stores the per-base coverage in each region specified in the bed file
             chrom_region_distribution.inc(arr, r.start, r.stop)
 
@@ -704,9 +736,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
       if tid == -2:
         when defined(d4):
           if use_d4:
-            fd4.write(target.name, @[Interval(left: 0'u32, right: target.length.uint32, value: 0'i32)])
+            fd4.write(target.name, @[Interval(left: 0'u32,
+                right: target.length.uint32, value: 0'i32)])
         else:
-          doAssert fbase.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t0", target.name, 0, int(target.length)) >= 0
+          doAssert fbase.write_interval(starget & "0\t" & intToStr(int(
+              target.length)) & "\t0", target.name, 0, int(target.length)) >= 0
       else:
         var write_fbase = true
         when defined(d4):
@@ -729,11 +763,15 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     if quantize.len != 0:
       if tid == -2 and quantize[0] == 0:
         var lookup = make_lookup(quantize)
-        doAssert fquantize.write_interval(starget & "0\t" & intToStr(int(target.length)) & "\t" & lookup[0], target.name, 0, int(target.length)) >= 0
+        doAssert fquantize.write_interval(starget & "0\t" & intToStr(int(
+            target.length)) & "\t" & lookup[0], target.name, 0, int(
+            target.length)) >= 0
       else:
         if tid == -2: continue
         for p in gen_quantized(quantize, arr):
-            doAssert fquantize.write_interval(starget & intToStr(p.start) & "\t" & intToStr(p.stop) & "\t" & p.value, target.name, p.start, p.stop) >= 0
+          doAssert fquantize.write_interval(starget & intToStr(p.start) & "\t" &
+              intToStr(p.stop) & "\t" & p.value, target.name, p.start,
+              p.stop) >= 0
 
   write_summary("total", global_stat, fh_summary)
   if region != "":
@@ -746,27 +784,28 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
 
   if bed_regions != nil and chrom == nil:
     for chrom, regions in bed_regions:
-      stderr.write_line("[mosdepth] warning chromosome:", chrom, " from bed with " , len(regions), " regions not found")
+      stderr.write_line("[mosdepth] warning chromosome:", chrom,
+          " from bed with ", len(regions), " regions not found")
 
   if fregion != nil and close(fregion) != 0:
-      stderr.write_line("[mosdepth] error writing region file\n")
-      quit(1)
+    stderr.write_line("[mosdepth] error writing region file\n")
+    quit(1)
 
   if fquantize != nil and close(fquantize) != 0:
-      stderr.write_line("[mosdepth] error writing quantize file\n")
-      quit(1)
+    stderr.write_line("[mosdepth] error writing quantize file\n")
+    quit(1)
 
   if fthresholds != nil and close(fthresholds) != 0:
-      stderr.write_line("[mosdepth] error writing thresholds file\n")
-      quit(1)
+    stderr.write_line("[mosdepth] error writing thresholds file\n")
+    quit(1)
   when defined(d4):
     if use_d4:
       fd4.close
       doAssert index_build_sfi(prefix & ".per-base.d4")
 
   if fbase != nil and close(fbase) != 0:
-      stderr.write_line("[mosdepth] error writing per-base file\n")
-      quit(1)
+    stderr.write_line("[mosdepth] error writing per-base file\n")
+    quit(1)
   close(fh_global_dist)
 
 proc check_chrom(r: region_t, targets: seq[Target]) =
@@ -780,11 +819,11 @@ proc check_chrom(r: region_t, targets: seq[Target]) =
 proc threshold_args*(ts: string): seq[int] =
   if ts == "nil":
     return
-  result = map(ts.split(','), proc (s:string): int = return parse_int(s))
+  result = map(ts.split(','), proc (s: string): int = return parse_int(s))
   sort(result)
 
 
-proc check_cram_has_ref(cram_path: string, fasta:string) =
+proc check_cram_has_ref(cram_path: string, fasta: string) =
   if fasta != "" and fileExists(fasta):
     return
   if cram_path.ends_with(".cram"):
@@ -847,7 +886,7 @@ Other options:
 
   var args: Table[string, Value]
   try:
-    args = docopt(doc, version = version, quit=false)
+    args = docopt(doc, version = version, quit = false)
   except DocoptExit:
     echo (ref DocoptExit)(get_current_exception()).usage
     quit "error parsing arguments"
@@ -860,16 +899,16 @@ Other options:
   if max_len < min_len:
     stderr.write_line("[mosdepth] error --max-frag-len was lower than --min-frag-len.")
     quit(2)
-  
+
   var
     region: string
     thresholds: seq[int] = threshold_args($args["--thresholds"])
-    fast_mode:bool = args["--fast-mode"]
-    use_median:bool = args["--use-median"]
+    fast_mode: bool = args["--fast-mode"]
+    use_median: bool = args["--use-median"]
   when defined(d4):
-    var use_d4:bool = args["--d4"] and not args["--no-per-base"]
+    var use_d4: bool = args["--d4"] and not args["--no-per-base"]
   else:
-    var use_d4:bool = false
+    var use_d4: bool = false
 
   if $args["--by"] != "nil":
     region = $args["--by"]
@@ -887,16 +926,19 @@ Other options:
     iflag: uint16 = uint16(S.parse_int($args["--include-flag"]))
     threads = S.parse_int($args["--threads"])
     chrom = region_line_to_region($args["--chrom"])
-    bam:Bam
+    bam: Bam
   check_cram_has_ref($args["<BAM-or-CRAM>"], $args["--fasta"])
-  open(bam, $args["<BAM-or-CRAM>"], threads=threads, index=true, fai=fasta)
+  open(bam, $args["<BAM-or-CRAM>"], threads = threads, index = true, fai = fasta)
   if bam.idx == nil:
     stderr.write_line("[mosdepth] error alignment file must be indexed")
     quit(2)
 
-  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int or SamField.SAM_TLEN.int
+  var opts = SamField.SAM_FLAG.int or SamField.SAM_RNAME.int or
+      SamField.SAM_POS.int or SamField.SAM_MAPQ.int or SamField.SAM_CIGAR.int or
+      SamField.SAM_TLEN.int
   if not fast_mode:
-      opts = opts or SamField.SAM_QNAME.int or SamField.SAM_RNEXT.int or SamField.SAM_PNEXT.int #or SamField.SAM_TLEN.int
+    opts = opts or SamField.SAM_QNAME.int or SamField.SAM_RNEXT.int or
+        SamField.SAM_PNEXT.int #or SamField.SAM_TLEN.int
 
   if $args["--read-groups"] != "nil":
     opts = opts or SamField.SAM_RGAUX.int
@@ -905,4 +947,5 @@ Other options:
   discard bam.set_option(FormatOption.CRAM_OPT_DECODE_MD, 0)
   check_chrom(chrom, bam.hdr.targets)
 
-  main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds, fast_mode, args, use_median=use_median, use_d4=use_d4)
+  main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds,
+      fast_mode, args, use_median = use_median, use_d4 = use_d4)
