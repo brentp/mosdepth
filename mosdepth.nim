@@ -1,5 +1,6 @@
 import hts
 import tables
+import sets
 import ./int2str
 import strutils as S
 import algorithm as alg
@@ -238,7 +239,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
     targets: seq[Target], mapq: int = -1, min_len: int = -1,
     max_len: int = int.high, eflag: uint16 = 1796, iflag: uint16 = 0,
     read_groups: seq[string] = (@[]), fast_mode: bool = false,
-    last_tid: var int = -1): int =
+    fragment_mode: bool = false, last_tid: var int = -1): int =
   # depth updates arr in-place and yields the tid for each chrom.
   # returns -1 if the chrom is not found in the bam header
   # returns -2 if the chrom was found in the header, but there was no data for it
@@ -247,6 +248,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
     tgt: hts.Target
     mate: Record
     seen = newTable[string, Record]()
+    seen_ids = initHashSet[string]() # TODO: Improve naming? No need to save mate records in fragment-mode
     has_read_groups = read_groups.len > 0
 
   var tid = if region != nil: get_tid(targets, region.chrom, last_tid) else: -1
@@ -276,7 +278,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
     # rec:   --------------
     # mate:             ------------
     # handle overlapping mate pairs.
-    if (not fast_mode) and rec.flag.proper_pair and (
+    if (not fast_mode) and (not fragment_mode) and rec.flag.proper_pair and (
         not rec.flag.supplementary):
       if rec.b.core.tid == rec.b.core.mtid and rec.stop > rec.matepos and
         # First case is partial overlap, second case is complete overlap
@@ -325,9 +327,30 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
               last_pos = p.pos
             if pair_depth != 0: echo $rec.qname & ":" & $rec & " " &
                 $mate.qname & ":" & $mate & " " & $pair_depth
+    
     if fast_mode:
       arr[rec.start] += 1
       arr[rec.stop] -= 1
+
+    elif fragment_mode:
+      # only include proper pairs
+      if (not rec.flag.proper_pair) or rec.flag.supplementary:
+        continue
+      # only count for first read
+      if rec.start > rec.matepos:
+        continue
+      # if reads have same start position we only 
+      # count the first time we see the qname
+      if rec.start == rec.matepos:
+        if rec.qname in seen_ids:
+          seen_ids.excl(rec.qname)
+          continue
+        seen_ids.incl(rec.qname)
+      
+      arr[rec.start] += 1
+      # start is 0-indexed (TODO: check this logic)
+      arr[rec.start + abs(rec.isize) + 1] -= 1
+      
     else:
       inc_coverage(rec.cigar, rec.start.int, arr)
 
@@ -563,8 +586,7 @@ proc to_tuples(targets: seq[Target]): seq[tuple[name: string, length: int]] =
     result[i] = (t.name, t.length.int)
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
-          fast_mode: bool, args: Table[string, docopt.Value],
-              use_median: bool = false, use_d4: bool = false) =
+          fast_mode: bool, args: Table[string, docopt.Value], use_median: bool = false, fragment_mode: bool = false, use_d4: bool = false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -872,6 +894,7 @@ Other options:
   -F --flag <FLAG>                  exclude reads with any of the bits in FLAG set [default: 1796]
   -i --include-flag <FLAG>          only include reads with any of the bits in FLAG set. default is unset. [default: 0]
   -x --fast-mode                    dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
+  -a --fragment-mode                count the coverage of the full fragment based on the insert size (proper pairs only).
   -q --quantize <segments>          write quantized output see docs for description.
   -Q --mapq <mapq>                  mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
   -l --min-frag-len <min-frag-len>  minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
@@ -904,11 +927,16 @@ Other options:
     region: string
     thresholds: seq[int] = threshold_args($args["--thresholds"])
     fast_mode: bool = args["--fast-mode"]
+    fragment_mode: bool = args["--fragment-mode"]
     use_median: bool = args["--use-median"]
   when defined(d4):
     var use_d4: bool = args["--d4"] and not args["--no-per-base"]
   else:
     var use_d4: bool = false
+
+  if fragment_mode and fast_mode:
+    stderr.write_line("[mosdepth] error only one of --fast-mode and --fragment-mode can be specified")
+    quit(2)
 
   if $args["--by"] != "nil":
     region = $args["--by"]
@@ -948,4 +976,5 @@ Other options:
   check_chrom(chrom, bam.hdr.targets)
 
   main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds,
-      fast_mode, args, use_median = use_median, use_d4 = use_d4)
+      fast_mode, args, use_median = use_median, fragment_mode = fragment_mode, use_d4 = use_d4)
+      
