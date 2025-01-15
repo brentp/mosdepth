@@ -339,8 +339,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
       
       var fragment_start = min(rec.start, rec.matepos)
       arr[fragment_start] += 1
-      # start is 0-indexed (TODO: check this logic)
-      arr[fragment_start + abs(rec.isize) + 1] -= 1
+      arr[fragment_start + abs(rec.isize)] -= 1
       
     else:
       inc_coverage(rec.cigar, rec.start.int, arr)
