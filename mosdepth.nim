@@ -333,23 +333,14 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
       arr[rec.stop] -= 1
 
     elif fragment_mode:
-      # only include proper pairs
-      if (not rec.flag.proper_pair) or rec.flag.supplementary:
+      # only count read1 from proper pairs
+      if rec.flag.read2 or (not rec.flag.proper_pair) or rec.flag.supplementary:
         continue
-      # only count for first read
-      if rec.start > rec.matepos:
-        continue
-      # if reads have same start position we only 
-      # count the first time we see the qname
-      if rec.start == rec.matepos:
-        if rec.qname in seen_ids:
-          seen_ids.excl(rec.qname)
-          continue
-        seen_ids.incl(rec.qname)
       
-      arr[rec.start] += 1
+      var fragment_start = min(rec.start, rec.matepos)
+      arr[fragment_start] += 1
       # start is 0-indexed (TODO: check this logic)
-      arr[rec.start + abs(rec.isize) + 1] -= 1
+      arr[fragment_start + abs(rec.isize) + 1] -= 1
       
     else:
       inc_coverage(rec.cigar, rec.start.int, arr)
