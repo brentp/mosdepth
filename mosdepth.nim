@@ -1,6 +1,5 @@
 import hts
 import tables
-import sets
 import ./int2str
 import strutils as S
 import algorithm as alg
@@ -248,7 +247,6 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
     tgt: hts.Target
     mate: Record
     seen = newTable[string, Record]()
-    seen_ids = initHashSet[string]() # TODO: Improve naming? No need to save mate records in fragment-mode
     has_read_groups = read_groups.len > 0
 
   var tid = if region != nil: get_tid(targets, region.chrom, last_tid) else: -1
@@ -884,7 +882,7 @@ Other options:
   -F --flag <FLAG>                  exclude reads with any of the bits in FLAG set [default: 1796]
   -i --include-flag <FLAG>          only include reads with any of the bits in FLAG set. default is unset. [default: 0]
   -x --fast-mode                    dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
-  -a --fragment-mode                count the coverage of the full fragment based on the insert size (proper pairs only).
+  -a --fragment-mode                count the coverage of the full fragment including the full insert (proper pairs only).
   -q --quantize <segments>          write quantized output see docs for description.
   -Q --mapq <mapq>                  mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
   -l --min-frag-len <min-frag-len>  minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
