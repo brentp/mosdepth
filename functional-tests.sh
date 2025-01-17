@@ -78,6 +78,20 @@ assert_in_stderr "--max-frag-len was lower than --min-frag-len."
 assert_exit_code 2
 
 
+# fragment-mode
+run fragment_mode $exe t --fragment-mode tests/full-fragment-pairs.bam
+assert_equal "$(zcat < t.per-base.bed.gz)" "chr22:20000000-23000000	0	17318	0
+chr22:20000000-23000000	17318	17320	1
+chr22:20000000-23000000	17320	17420	2
+chr22:20000000-23000000	17420	17756	1
+chr22:20000000-23000000	17756	52130	0
+chr22:20000000-23000000	52130	52135	1
+chr22:20000000-23000000	52135	52235	2
+chr22:20000000-23000000	52235	52546	1
+chr22:20000000-23000000	52546	3000001	0"
+assert_exit_code 0
+
+
 unset MOSDEPTH_Q0
 unset MOSDEPTH_Q1
 unset MOSDEPTH_Q2
