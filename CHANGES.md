@@ -1,3 +1,7 @@
+v0.3.11
+=======
++ add --fragment-mode (#246 from @LudvigOlsen). calculates coverage over a full fragment, including insert.
+
 v0.3.10
 =======
 + write sfi index in d4 files (#243)

@@ -23,7 +23,7 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ## usage
 
 ```
-mosdepth 0.3.9
+mosdepth 0.3.11
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
 
@@ -46,13 +46,13 @@ Common Options:
   -n --no-per-base           dont output per-base depth. skipping this output will speed execution
                              substantially. prefer quantized or thresholded values if possible.
   -f --fasta <fasta>         fasta file for use with CRAM files [default: ].
-  --d4                       output per-base depth in d4 format.
 
 Other options:
 
   -F --flag <FLAG>                  exclude reads with any of the bits in FLAG set [default: 1796]
   -i --include-flag <FLAG>          only include reads with any of the bits in FLAG set. default is unset. [default: 0]
   -x --fast-mode                    dont look at internal cigar operations or correct mate overlaps (recommended for most use-cases).
+  -a --fragment-mode                count the coverage of the full fragment including the full insert (proper pairs only).
   -q --quantize <segments>          write quantized output see docs for description.
   -Q --mapq <mapq>                  mapping quality threshold. reads with a quality less than this value are ignored [default: 0]
   -l --min-frag-len <min-frag-len>  minimum insert size. reads with a smaller insert size than this are ignored [default: -1]
