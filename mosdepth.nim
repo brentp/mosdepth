@@ -34,7 +34,7 @@ type
     stop*: uint32
     name*: string
 
-  coverage_t = seq[int32]
+  coverage_t {.shallow.} = seq[int32]
 
 proc `$`*(r: region_t): string =
   if r == nil:
@@ -325,7 +325,7 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
               last_pos = p.pos
             if pair_depth != 0: echo $rec.qname & ":" & $rec & " " &
                 $mate.qname & ":" & $mate & " " & $pair_depth
-    
+
     if fast_mode:
       arr[rec.start] += 1
       arr[rec.stop] -= 1
@@ -334,11 +334,11 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
       # only count read1 from proper pairs
       if rec.flag.read2 or (not rec.flag.proper_pair) or rec.flag.supplementary:
         continue
-      
+
       var fragment_start = min(rec.start, rec.matepos)
       arr[fragment_start] += 1
       arr[fragment_start + abs(rec.isize)] -= 1
-      
+
     else:
       inc_coverage(rec.cigar, rec.start.int, arr)
 
@@ -574,7 +574,9 @@ proc to_tuples(targets: seq[Target]): seq[tuple[name: string, length: int]] =
     result[i] = (t.name, t.length.int)
 
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
-          fast_mode: bool, args: Table[string, docopt.Value], use_median: bool = false, fragment_mode: bool = false, use_d4: bool = false) =
+          fast_mode: bool, args: Table[string, docopt.Value],
+              use_median: bool = false, fragment_mode: bool = false,
+              use_d4: bool = false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -686,7 +688,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
       continue
     rchrom = region_t(chrom: target.name)
     var tid = coverage(bam, arr, rchrom, targets, mapq, min_len, max_len, eflag,
-        iflag, read_groups = read_groups, fast_mode = fast_mode, fragment_mode = fragment_mode,
+        iflag, read_groups = read_groups, fast_mode = fast_mode,
+        fragment_mode = fragment_mode,
         last_tid = last_tid)
     if tid == -1: continue # -1 means that chrom is not even in the bam
     if tid != -2: # -2 means there were no reads in the bam
@@ -964,5 +967,6 @@ Other options:
   check_chrom(chrom, bam.hdr.targets)
 
   main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds,
-      fast_mode, args, use_median = use_median, fragment_mode = fragment_mode, use_d4 = use_d4)
-      
+      fast_mode, args, use_median = use_median, fragment_mode = fragment_mode,
+      use_d4 = use_d4)
+

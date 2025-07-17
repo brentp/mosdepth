@@ -1,10 +1,15 @@
 fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing**.
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mosdepth/README.html)
 
-
 ![logo](https://user-images.githubusercontent.com/1739/29678184-da1f384c-88ba-11e7-9d98-df4fe3a59924.png "logo")
 
 [![Build](https://github.com/brentp/mosdepth/actions/workflows/build.yml/badge.svg)](https://github.com/brentp/mosdepth/actions/workflows/build.yml) [![citation](https://img.shields.io/badge/cite-open%20access-orange.svg)](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
+
+> **Note:**  
+> `mosdepth` must be built with the `--mm:refc` flag for optimal performance and correct operation.  
+
+```
+
 
 `mosdepth` can output:
 
@@ -23,6 +28,7 @@ when appropriate, the output files are bgzipped and indexed for ease of use.
 ## usage
 
 ```
+
 mosdepth 0.3.11
 
   Usage: mosdepth [options] <prefix> <BAM-or-CRAM>
@@ -63,6 +69,7 @@ Other options:
   -m --use-median                   output median of each region (in --by) instead of mean.
   -R --read-groups <string>         only calculate depth for these comma-separated read groups IDs.
   -h --help                         show help
+
 ```
 If you use mosdepth please cite [the publication in bioinformatics](https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btx699/4583630?guestAccessKey=35b55064-4566-4ab3-a769-32916fa1c6e6)
 
@@ -77,7 +84,9 @@ If you don't want this behavior, simply send a bed file with 3 columns.
 
 To calculate the coverage in each exome capture region:
 ```
+
 mosdepth --by capture.bed sample-output sample.exome.bam
+
 ```
 For a 5.5GB exome BAM and all 1,195,764 ensembl exons as the regions,
 this completes in 1 minute 38 seconds with a single CPU.
@@ -93,7 +102,9 @@ The distribution of depths will go to `sample-output.mosdepth.dist.txt`
 For 500-base windows
 
 ```
+
 mosdepth -n --fast-mode --by 500 sample.wgs $sample.wgs.cram
+
 ```
 
 `-n` means don't output per-base data, this will make `mosdepth`
@@ -108,12 +119,15 @@ improvement.
 To create a set of "callable" regions as in [GATK's callable loci tool](https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_gatk_tools_walkers_coverage_CallableLoci.php):
 
 ```
+
 # by setting these ENV vars, we can control the output labels (4th column)
+
 export MOSDEPTH_Q0=NO_COVERAGE   # 0 -- defined by the arguments to --quantize
 export MOSDEPTH_Q1=LOW_COVERAGE  # 1..4
 export MOSDEPTH_Q2=CALLABLE      # 5..149
 export MOSDEPTH_Q3=HIGH_COVERAGE # 150 ...
 mosdepth -n --quantize 0:1:5:150: $sample.quantized $sample.wgs.bam
+
 ```
 
 For this case. A regions with depth of 0 are labelled as "NO_COVERAGE", those with
@@ -128,7 +142,9 @@ bin are merged into a single region with the 4th column indicating the label.
 To get only the distribution value, without the depth file or the per-base and using 3 threads:
 
 ```
+
 MOSDEPTH_PRECISION=5 mosdepth -n -t 3 $sample $bam
+
 ```
 
 Output will go to `$sample.mosdepth.dist.txt`
@@ -153,8 +169,10 @@ Another quick way is to [![install with bioconda](https://img.shields.io/badge/i
 
 It can also be installed with `brew` as `brew install brewsci/bio/mosdepth` or used via docker with quay:
 ```
+
 docker pull quay.io/biocontainers/mosdepth:0.3.3--h37c5b7d_2
 docker run -v /hostpath/:/opt/mount quay.io/biocontainers/mosdepth:0.2.4--he527e40_0 mosdepth -n --fast-mode -t 4 --by 1000 /opt/mount/sample /opt/mount/$bam
+
 ```
 
 The binary from releases is static, with no dependencies. If you build it yourself,
@@ -211,18 +229,22 @@ more details.
 given a set of regions to the `--by` argment, `mosdepth` can report the number of bases in each region that
 are covered at or above each threshold value given to `--thresholds`. e.g:
 ```
+
 mosdepth --by exons.bed --thresholds 1,10,20,30 $prefix $bam
+
 ```
 
 will create a file $prefix.thresholds.bed.gz with an extra column for each requested threshold.
 An example output for the above command (assuming exons.bed had a 4th column with gene names) would look like (including the header):
 
 ```
-#chrom  start   end     region           1X   10X  20X  30X
+
+# chrom  start   end     region           1X   10X  20X  30X
 1       11869   12227   ENSE00002234944  358  157  110  0
 1       11874   12227   ENSE00002269724  353  127  10   0
 1       12010   12057   ENSE00001948541  47   8    0    0
 1       12613   12721   ENSE00003582793  108  0    0    0
+
 ```
 
 If there is no name (4th) column in the bed file send to `--by` then that column will contain "unknown"
@@ -240,7 +262,9 @@ It also allows outputting regions of low, high, and "callable" coverage as in [G
 
 An example of quantize arguments:
 ```
+
 --quantize 0:1:4:100:200: # ... arbitary number of quantize bins.
+
 ```
 
 indicates bins of: 0:1, 1:4, 4:100, 100:200, 200:infinity
@@ -251,10 +275,12 @@ The default for `mosdepth` is to output labels as above (0:1, 1:4, 4:100... etc.
 To change what is reported as the bin number, a user can set environment variables e.g.:
 
 ```
+
 export MOSDEPTH_Q0=NO_COVERAGE
 export MOSDEPTH_Q1=LOW_COVERAGE
 export MOSDEPTH_Q2=CALLABLE
 export MOSDEPTH_Q3=HIGH_COVERAGE
+
 ```
 
 In this case, the bin label is replaced by the text in the appropriate environment variable.
