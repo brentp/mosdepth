@@ -8,7 +8,6 @@ fast BAM/CRAM depth calculation for **WGS**, **exome**, or **targeted sequencing
 > **Note:**  
 > `mosdepth` must be built with the `--mm:refc` flag for optimal performance and correct operation.  
 
-```
 
 
 `mosdepth` can output:
