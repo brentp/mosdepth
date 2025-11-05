@@ -5,9 +5,11 @@ on:
   push:
     branches:
       - master
+      - dev
   pull_request:
     branches:
       - master
+      - dev
 
 jobs:
   build:
@@ -60,7 +62,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         cd
-        git clone -b 1.18 --recursive https://github.com/samtools/htslib.git
+        git clone -b 1.22.1 --recursive https://github.com/samtools/htslib.git
         cd htslib && autoheader && autoconf && ./configure --enable-libcurl
         sudo make -j 4 install
         sudo ldconfig
