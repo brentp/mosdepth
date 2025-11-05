@@ -1,7 +1,7 @@
 # copied from Daniel Cook's Seq collection
 name: Build
 
-on: 
+on:
   push:
     branches:
       - master
@@ -13,116 +13,151 @@ on:
 
 jobs:
   build:
-
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-14]
+        os: [ubuntu-22.04, macos-14]
         version:
-        - 1.6.18
-        - 2.0.2
-
+          - 1.6.18
+          - 2.0.2
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
 
-    # Caching
-    - name: Cache choosenim
-      id: cache-choosenim
-      uses: actions/cache@v4
-      with:
-        path: ~/.choosenim
-        key: ${{ runner.os }}-choosenim-stable
+      # Caching
+      - name: Cache choosenim
+        id: cache-choosenim
+        uses: actions/cache@v4
+        with:
+          path: ~/.choosenim
+          key: ${{ runner.os }}-choosenim-stable
 
-    - name: Cache nimble
-      id: cache-nimble
-      uses: actions/cache@v4
-      with:
-        path: ~/.nimble
-        key: ${{ runner.os }}-nimble-stable
+      - name: Cache nimble
+        id: cache-nimble
+        uses: actions/cache@v4
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-stable
 
-    - name: Cache htslib
-      id: cache-htslib
-      uses: actions/cache@v4
-      with:
-        path: $HOME/htslib
-        key: ${{ runner.os }}-htslib-1.10
+      - name: Cache htslib
+        id: cache-htslib
+        uses: actions/cache@v4
+        with:
+          path: $HOME/htslib
+          key: ${{ runner.os }}-htslib-1.10
 
-    # Install Dependencies
-    - name: Install dependencies (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
-             curl libssl-dev libtool autoconf automake libcurl4-openssl-dev zlib1g-dev
+      # Install Dependencies
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get -qy install bwa make build-essential cmake libncurses-dev ncurses-dev libbz2-dev lzma-dev liblzma-dev \
+               curl libssl-dev libtool autoconf automake libcurl4-openssl-dev zlib1g-dev
 
-    # Setup htslib
-    - name: Install htslib (linux)
-      if: runner.os == 'Linux'
-      run: |
-        cd
-        git clone -b 1.22.1 --recursive https://github.com/samtools/htslib.git
-        cd htslib && autoheader && autoconf && ./configure --enable-libcurl
-        sudo make -j 4 install
-        sudo ldconfig
-        #echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
-        #ls -lh $HOME/htslib/*.so
+      # Setup htslib
+      - name: Install htslib (linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd
+          git clone -b 1.22.1 --recursive https://github.com/samtools/htslib.git
+          cd htslib && autoheader && autoconf && autoreconf -i && ./configure --enable-libcurl
+          sudo make -j 4 install
+          sudo ldconfig
+          #echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY_PATH}:${HOME}/htslib"
+          #ls -lh $HOME/htslib/*.so
 
-    - name: Install hstlib (macos)
-      if: runner.os == 'macOS'
-      run: |
-        brew install htslib
+      - name: Install hstlib (macos)
+        if: runner.os == 'macOS'
+        run: |
+          brew install htslib
 
-    - name: Set DYLD_LIBRARY_PATH
-      if: runner.os == 'macOS'
-      run: |
+      - name: Set DYLD_LIBRARY_PATH
+        if: runner.os == 'macOS'
+        run: |
           echo "DYLD_LIBRARY_PATH=$(brew --prefix htslib)/lib" >> $GITHUB_ENV
+          echo "DYLD_INCLUDE_PATH=$(brew --prefix htslib)/include" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=$(brew --prefix htslib)/lib" >> $GITHUB_ENV
+          echo "CPATH=$(brew --prefix htslib)/include" >> $GITHUB_ENV
 
-    - name: Install d4 
-      run: |
-        #export HTSLIB=system
-        git clone https://github.com/38/d4-format
-        echo 'location' >> ~/.curlrc # https://github.com/38/d4-format/pull/77#issuecomment-2044438359
-        cd d4-format
-        cargo build --release --all-features --package=d4binding
-        sudo cp target/release/libd4binding.* /usr/local/lib
-        sudo cp d4binding/include/d4.h /usr/local/include/
-        sudo ldconfig || true
+      - name: Set DYLD_LIBRARY_PATH (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "DYLD_LIBRARY_PATH=/usr/local/lib" >> $GITHUB_ENV
+          echo "DYLD_INCLUDE_PATH=/usr/local/include" >> $GITHUB_ENV
 
+      - name: Make libhts discoverable for tests
+        run: |
+          # Detect htslib location via Homebrew or fallback to $HOME/htslib
+          HTS_LIB_DIR=""
+          if command -v brew >/dev/null 2>&1; then
+            BREW_PREFIX="$(brew --prefix htslib 2>/dev/null || true)"
+            if [ -n "$BREW_PREFIX" ] && [ -d "$BREW_PREFIX/lib" ]; then
+              HTS_LIB_DIR="$BREW_PREFIX/lib"
+            fi
+          fi
+          if [ -z "$HTS_LIB_DIR" ] && [ -d "$HOME/htslib" ]; then
+            HTS_LIB_DIR="$HOME/htslib"
+          fi
+          if [ -z "$HTS_LIB_DIR" ]; then
+            echo "ERROR: libhts not found via Homebrew or at \$HOME/htslib" >&2
+            exit 1
+          fi
+          echo "Using htslib dir: $HTS_LIB_DIR"
+          if [ "${RUNNER_OS:-}" = "macOS" ]; then
+            #echo "DYLD_LIBRARY_PATH=$HTS_LIB_DIR:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+            echo "DYLD_LIBRARY_PATH=$HTS_LIB_DIR" >> "$GITHUB_ENV"
+          else
+            #echo "LD_LIBRARY_PATH=$HTS_LIB_DIR:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+            echo "LD_LIBRARY_PATH=$HTS_LIB_DIR" >> "$GITHUB_ENV"
+          fi
 
-    - uses: iffy/install-nim@v5
-      with:
-        version: ${{ matrix.version }}
+      - name: Install d4
+        run: |
+          #export HTSLIB=system
+          git clone https://github.com/38/d4-format
+          echo 'location' >> ~/.curlrc # https://github.com/38/d4-format/pull/77#issuecomment-2044438359
+          cd d4-format
+          cargo build --release --all-features --package=d4binding
+          sudo cp target/release/libd4binding.* $DYLD_LIBRARY_PATH
+          sudo cp d4binding/include/d4.h $DYLD_INCLUDE_PATH
+          sudo ldconfig || true
 
-    - name: Rust Toolchain
-      uses: dtolnay/rust-toolchain@nightly
-      with:
-        toolchain: stable
+      - uses: iffy/install-nim@v5
+        with:
+          version: ${{ matrix.version }}
 
-    # Build and Test
-    - name: Build test executable
-      run: nimble build -Y mosdepth.nimble
+      - name: Rust Toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: stable
 
-    - name: "Copy binary"
-      run: chmod +x mosdepth && mkdir bin && cp mosdepth bin/mosdepth_debug_${{ matrix.os }}
+      # Build and Test
+      - name: Build test executable
+        run: nimble build -Y mosdepth.nimble
 
-    - name: "Build and Copy release binary"
-      run: nim c --mm:refc -d:danger -d:release -o:bin/mosdepth_${{ matrix.os }} mosdepth
-    
-    - name: Functional Tests
-      env:
-        TERM: "xterm"
-      run: |
-        bash ./functional-tests.sh
+      - name: "Copy binary"
+        run: chmod +x mosdepth && mkdir bin && cp mosdepth bin/mosdepth_debug_${{ matrix.os }}
 
-    - name: Unit Tests
-      run: |
-        nim c -r tests/all.nim
+      - name: "Build and Copy release binary"
+        run: nim c --mm:refc -d:danger -d:release -o:bin/mosdepth_${{ matrix.os }} mosdepth
 
-    - name: Upload Artifact
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: mosdepth_${{ matrix.os }}_nim${{ matrix.version }}_executable
-        path: bin/
+      - name: Functional Tests
+        env:
+          TERM: "xterm"
+        run: |
+          bash ./functional-tests.sh
+
+      - name: Unit Tests
+        run: |
+          nim c -r tests/all.nim
+
+      - name: Upload Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosdepth_${{ matrix.os }}_nim${{ matrix.version }}_executable
+          path: bin/
