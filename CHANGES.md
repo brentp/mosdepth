@@ -1,3 +1,7 @@
+v0.3.12
+=======
++ update htslib to support CRAM v3.1
+
 v0.3.11
 =======
 + add --fragment-mode (#246 from @LudvigOlsen). calculates coverage over a full fragment, including insert.
