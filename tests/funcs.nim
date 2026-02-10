@@ -2,6 +2,7 @@ import unittest
 import mosdepth
 import depthstat
 import os
+import hts
 
 suite "mosdepth-suite":
 
@@ -89,3 +90,19 @@ suite "mosdepth-suite":
     check r.chrom == "Super-Scaffold_52"
     check r.start == 1
     check r.stop == 1000
+
+  test "bed-index-preset":
+    let path = getTempDir() / "mosdepth-index-preset.bed.gz"
+    if fileExists(path):
+      removeFile(path)
+    if fileExists(path & ".csi"):
+      removeFile(path & ".csi")
+    var fh = wopen_bgzi(path, 1, 2, 3, true)
+    fh.set_bed_tbx_preset()
+    check fh.write_interval("chr1\t0\t1\t0.0", "chr1", 0, 1) >= 0
+    check fh.csi.tbx.conf.preset == TbxUcscPreset
+    discard fh.close()
+    if fileExists(path):
+      removeFile(path)
+    if fileExists(path & ".csi"):
+      removeFile(path & ".csi")

@@ -18,6 +18,13 @@ when defined(d4):
 var precision: int
 var output_summary_header = true
 
+const
+  TbxUcscPreset* = 0x10000'i32
+
+proc set_bed_tbx_preset*(bgzi: var BGZI) {.inline.} =
+  if bgzi != nil:
+    bgzi.csi.tbx.conf.preset = TbxUcscPreset
+
 try:
   var tmp = getEnv("MOSDEPTH_PRECISION")
   precision = parse_int(tmp)
@@ -636,14 +643,17 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     else:
       fbase = wopen_bgzi(prefix & ".per-base.bed.gz", 1, 2, 3, true,
           compression_level = 1, levels = levels)
+      fbase.set_bed_tbx_preset()
     #open(fbase, prefix & ".per-base.bed.gz", "w1")
   if quantize.len != 0:
     fquantize = wopen_bgzi(prefix & ".quantized.bed.gz", 1, 2, 3, true,
         compression_level = 1, levels = levels)
+    fquantize.set_bed_tbx_preset()
 
   if thresholds.len != 0:
     fthresholds = wopen_bgzi(prefix & ".thresholds.bed.gz", 1, 2, 3, true,
         compression_level = 1, levels = levels)
+    fthresholds.set_bed_tbx_preset()
     fthresholds.write_header(thresholds)
 
   if not open(fh_global_dist, prefix & ".mosdepth.global.dist.txt", fmWrite):
@@ -659,6 +669,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
   if region != "":
     fregion = wopen_bgzi(prefix & ".regions.bed.gz", 1, 2, 3, true,
         levels = levels)
+    fregion.set_bed_tbx_preset()
     if region.isdigit():
       window = uint32(S.parse_int(region))
     else:
@@ -969,4 +980,3 @@ Other options:
   main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds,
       fast_mode, args, use_median = use_median, fragment_mode = fragment_mode,
       use_d4 = use_d4)
-
