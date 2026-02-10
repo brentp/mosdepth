@@ -1,3 +1,7 @@
+v0.3.13
+=======
++ explicitly set index type to BED (#260)
+
 v0.3.12
 =======
 + update htslib to support CRAM v3.1
