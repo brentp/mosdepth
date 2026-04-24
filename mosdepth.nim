@@ -716,11 +716,12 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     if region != "":
       var line = new_string_of_cap(16384)
       var me = 0'f64
+      let L = arr.len.uint32
       for r in region_gen(window, target, bed_regions):
         if tid != -2:
           me = imean(arr, r.start, r.stop, cs)
-          chrom_region_stat = chrom_region_stat + newDepthStat(arr[
-              r.start..<min(arr.len.uint32, r.stop)])
+          chrom_region_stat = chrom_region_stat +
+              newDepthStat(arr[ min(r.start, L)..<min(L, r.stop)])
         var m = su.format_float(me, ffDecimal, precision = precision)
 
         if r.name == "":

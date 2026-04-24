@@ -53,6 +53,9 @@ assert_equal $(zcat < t.regions.bed.gz | wc -l) 2
 run missing_bed_chrom $exe --by tests/missing.bed t tests/ovl.bam
 assert_exit_code 0
 
+run bed_start_past_chrom_end $exe -n --by tests/chrom-end/region-not-ok.bed t tests/chrom-end/minimal.bam
+assert_exit_code 0
+
 run big_window $exe t tests/ovl.bam --by 100000000
 assert_exit_code 0
 assert_equal $(zgrep -c "MT" t.per-base.bed.gz) 2
@@ -196,7 +199,6 @@ assert_exit_code 0
 run check_exit_code_on_bad_args $exe -t4prefix sample.bam
 assert_exit_code 1
 assert_in_stderr "error parsing arguments"
-
 
 
 
