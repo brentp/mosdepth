@@ -1,3 +1,7 @@
+v0.3.14
+=======
++ fix when start of requested region off end of chrom (#266 thanks @roland-ewald for very nice test-case)
+
 v0.3.13
 =======
 + explicitly set index type to BED (#260)
