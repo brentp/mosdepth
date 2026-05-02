@@ -225,7 +225,7 @@ more details.
 
 ## thresholds
 
-given a set of regions to the `--by` argment, `mosdepth` can report the number of bases in each region that
+given a set of regions to the `--by` argument, `mosdepth` can report the number of bases in each region that
 are covered at or above each threshold value given to `--thresholds`. e.g:
 ```
 
