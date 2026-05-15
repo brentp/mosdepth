@@ -589,7 +589,7 @@ proc to_tuples(targets: seq[Target]): seq[tuple[name: string, length: int]] =
 proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, eflag: uint16, iflag: uint16, region: string, thresholds: seq[int],
           fast_mode: bool, args: Table[string, docopt.Value],
               use_median: bool = false, fragment_mode: bool = false,
-              use_d4: bool = false) =
+              use_d4: bool = false, progress: bool = false) =
   # windows are either from regions, or fixed-length windows.
   # we assume the input is sorted by chrom.
   var
@@ -694,6 +694,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
           ". percent of contigs completed:", su.format_float(100 *
           ii/sub_targets.len, ffDecimal, precision = 2))
     ii += 1
+    if progress:
+      stderr.write_line("[progress] chrom ", target.name, " ", ii, " of ", sub_targets.len)
     zeroMem(chrom_global_distribution[0].addr, len(chrom_global_distribution) *
         sizeof(chrom_global_distribution[0]))
     if region != "":
@@ -913,6 +915,7 @@ Other options:
                                     by ','.
   -m --use-median                   output median of each region (in --by) instead of mean.
   -R --read-groups <string>         only calculate depth for these comma-separated read groups IDs.
+  -p --progress                     emit a [progress] line to stderr at the start of each chromosome.
   -h --help                         show help
   """
 
@@ -942,6 +945,7 @@ Other options:
     var use_d4: bool = args["--d4"] and not args["--no-per-base"]
   else:
     var use_d4: bool = false
+  var progress: bool = args["--progress"]
 
   if fragment_mode and fast_mode:
     stderr.write_line("[mosdepth] error only one of --fast-mode and --fragment-mode can be specified")
@@ -986,4 +990,4 @@ Other options:
 
   main(bam, chrom, mapq, min_len, max_len, eflag, iflag, region, thresholds,
       fast_mode, args, use_median = use_median, fragment_mode = fragment_mode,
-      use_d4 = use_d4)
+      use_d4 = use_d4, progress = progress)
