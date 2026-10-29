@@ -41,6 +41,12 @@ type
     stop*: uint32
     name*: string
 
+  # Like region_t, but without chrom: string to save memory.
+  interval_t = object
+    start: uint32
+    stop: uint32
+    name: string
+
   coverage_t {.shallow.} = seq[int32]
 
 proc `$`*(r: region_t): string =
@@ -359,8 +365,8 @@ proc coverage(bam: hts.Bam, arr: var coverage_t, region: var region_t,
     return -2
   return tgt.tid
 
-proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
-  var bed_regions = newTable[string, seq[region_t]]()
+proc bed_to_table(bed: string): TableRef[string, seq[interval_t]] =
+  var bed_regions = newTable[string, seq[interval_t]]()
   var kstr = kstring_t(l: 0, m: 0, s: nil)
   var hf = hts_open(cstring(bed), "r")
   while hts_getline(hf, cint(10), addr kstr) > 0:
@@ -370,25 +376,27 @@ proc bed_to_table(bed: string): TableRef[string, seq[region_t]] =
       continue
     var v = bed_line_to_region($kstr.s)
     if v == nil: continue
-    bed_regions.mgetOrPut(v.chrom, new_seq[region_t]()).add(v)
+    # The table key already stores the chromosome; keep only interval data.
+    bed_regions.mgetOrPut(v.chrom, new_seq[interval_t]()).add(
+      interval_t(start: v.start, stop: v.stop, name: v.name))
 
   # since it is read into mem, can also well sort.
   for chrom, ivs in bed_regions.mpairs:
-    sort(ivs, proc (a, b: region_t): int = int(a.start) - int(b.start))
+    sort(ivs, proc (a, b: interval_t): int = int(a.start) - int(b.start))
 
   hts.free(kstr.s)
   return bed_regions
 
-iterator window_gen(window: uint32, t: hts.Target): region_t =
+iterator window_gen(window: uint32, t: hts.Target): interval_t =
   var start: uint32 = 0
   while start + window < t.length:
-    yield region_t(chrom: t.name, start: start, stop: start + window)
+    yield interval_t(start: start, stop: start + window)
     start += window
   if start != t.length:
-    yield region_t(chrom: t.name, start: start, stop: t.length)
+    yield interval_t(start: start, stop: t.length)
 
 iterator region_gen(window: uint32, target: hts.Target, bed_regions: TableRef[
-    string, seq[region_t]]): region_t =
+    string, seq[interval_t]]): interval_t =
   if bed_regions == nil:
     for r in window_gen(window, target): yield r
   else:
@@ -520,14 +528,14 @@ proc get_quantize_args*(qa: string): seq[int] =
 
 
 proc write_thresholds(fh: BGZI, tid: int, arr: var coverage_t, thresholds: seq[
-    int], region: region_t) =
+    int], chrom: string, region: interval_t) =
   # write the number of bases in each region that are >= each threshold.
   if thresholds.len == 0: return
   var
     line = new_string_of_cap(32)
     start = int(region.start)
     stop = int(region.stop)
-  line.add(region.chrom & "\t")
+  line.add(chrom & "\t")
   line.add(intToStr(start) & "\t")
   line.add(intToStr(stop))
   if region.name != "":
@@ -538,7 +546,7 @@ proc write_thresholds(fh: BGZI, tid: int, arr: var coverage_t, thresholds: seq[
   if tid == -2:
     for i in thresholds:
       line.add("\t0")
-    doAssert fh.write_interval(line, region.chrom, start, stop) >= 0
+    doAssert fh.write_interval(line, chrom, start, stop) >= 0
     return
 
   var counts = new_seq[int](len(thresholds))
@@ -546,7 +554,7 @@ proc write_thresholds(fh: BGZI, tid: int, arr: var coverage_t, thresholds: seq[
     shallow(arr)
 
   # iterate over the region and count bases >= request cutoffs.
-  for v in arr[start..<stop]:
+  for v in arr.toOpenArray(start, stop - 1):
     for i, t in thresholds:
       # if we know they are sorted we can break
       if v < t: break
@@ -554,7 +562,7 @@ proc write_thresholds(fh: BGZI, tid: int, arr: var coverage_t, thresholds: seq[
 
   for count in counts:
     line.add("\t" & intToStr(count))
-  doAssert fh.write_interval(line, region.chrom, start, stop) >= 0
+  doAssert fh.write_interval(line, chrom, start, stop) >= 0
 
 proc write_header(fh: BGZI, thresholds: seq[int]) =
   doAssert fh.bgz.write("#chrom	start	end	region") >= 0
@@ -601,8 +609,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     prefix: string = $(args["<prefix>"])
     skip_per_base = args["--no-per-base"]
     window: uint32 = 0
-    bed_regions: TableRef[string, seq[region_t]] # = Table[string, seq[region_t]]
-                                                 #fbase: BGZ
+    bed_regions: TableRef[string, seq[interval_t]]
     fquantize: BGZI
     fthresholds: BGZI
     fregion: BGZI
@@ -721,7 +728,7 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
         if tid != -2:
           me = imean(arr, r.start, r.stop, cs)
           chrom_region_stat = chrom_region_stat +
-              newDepthStat(arr[ min(r.start, L)..<min(L, r.stop)])
+              newDepthStat(arr.toOpenArray(int(min(r.start, L)), int(min(L, r.stop)) - 1))
         var m = su.format_float(me, ffDecimal, precision = precision)
 
         if r.name == "":
@@ -740,11 +747,11 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
           else: # stores the per-base coverage in each region specified in the bed file
             chrom_region_distribution.inc(arr, r.start, r.stop)
 
-        write_thresholds(fthresholds, tid, arr, thresholds, r)
+        write_thresholds(fthresholds, tid, arr, thresholds, target.name, r)
 
     if tid != -2:
       chrom_global_distribution.inc(arr, uint32(0), uint32(len(arr) - 1))
-      chrom_stat = newDepthStat(arr[0..<len(arr)-1])
+      chrom_stat = newDepthStat(arr.toOpenArray(0, len(arr) - 2))
       global_stat = global_stat + chrom_stat
       write_summary(target.name, chrom_stat, fh_summary)
       if region != "":
