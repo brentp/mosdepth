@@ -76,6 +76,40 @@ run length_filter $exe t tests/ovl.bam --max-frag-len 79
 assert_exit_code 0
 assert_equal "MT	0	16569	0" "$(zgrep ^MT t.per-base.bed.gz)"
 
+# --exclude-tag. tests/dup-tags.bam holds 3 reads all spanning MT:0-80: one untagged
+# non-duplicate, one optical duplicate (DT:Z:SQ) and one library/PCR duplicate (DT:Z:LB), so the
+# depth over that span is just the number of reads that survived filtering.
+
+# default excludes every duplicate: only the untagged read remains
+run exclude_tag_default $exe t tests/dup-tags.bam
+assert_exit_code 0
+assert_equal "MT 0 80 1 MT 80 16569 0 " "$(zgrep ^MT t.per-base.bed.gz | tr -s '[:space:]' ' ')"
+
+# keep duplicates (-F 772) but drop the optical one: untagged + library = 2
+run exclude_tag_optical $exe t tests/dup-tags.bam -F 772 --exclude-tag DT:SQ
+assert_exit_code 0
+assert_equal "MT 0 80 2 MT 80 16569 0 " "$(zgrep ^MT t.per-base.bed.gz | tr -s '[:space:]' ' ')"
+
+# keep duplicates and exclude nothing: all 3
+run exclude_tag_none $exe t tests/dup-tags.bam -F 772
+assert_exit_code 0
+assert_equal "MT 0 80 3 MT 80 16569 0 " "$(zgrep ^MT t.per-base.bed.gz | tr -s '[:space:]' ' ')"
+
+# an absent tag must never exclude: filtering on a tag no read carries changes nothing
+run exclude_tag_absent $exe t tests/dup-tags.bam -F 772 --exclude-tag ZZ:nope
+assert_exit_code 0
+assert_equal "MT 0 80 3 MT 80 16569 0 " "$(zgrep ^MT t.per-base.bed.gz | tr -s '[:space:]' ' ')"
+
+# comma-separated list drops both classes, leaving only the untagged read
+run exclude_tag_multi $exe t tests/dup-tags.bam -F 772 --exclude-tag DT:SQ,DT:LB
+assert_exit_code 0
+assert_equal "MT 0 80 1 MT 80 16569 0 " "$(zgrep ^MT t.per-base.bed.gz | tr -s '[:space:]' ' ')"
+
+# a spec without a colon is rejected up front rather than silently ignored
+run exclude_tag_malformed $exe t tests/dup-tags.bam --exclude-tag DT
+assert_exit_code 2
+assert_in_stderr "--exclude-tag expects TAG:VALUE"
+
 run bad_frag_len_filter $exe t tests/ovl.bam --min-frag-len 10 --max-frag-len 9
 assert_in_stderr "--max-frag-len was lower than --min-frag-len."
 assert_exit_code 2

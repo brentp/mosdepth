@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, macos-14]
         version:
-          - 1.6.18
+          - 1.6.20
           - 2.0.2
 
     steps:
@@ -116,6 +116,13 @@ jobs:
           fi
 
       - name: Install d4
+        env:
+          # d4binding declares `memcpy` with a mismatched signature
+          # (d4binding/src/api.rs:252). Recent rustc denies that by default via
+          # the `invalid_runtime_symbol_definitions` lint, which breaks the
+          # upstream build. The mismatch is ABI-harmless, so downgrade it here
+          # until 38/d4-format fixes the declaration.
+          RUSTFLAGS: -A invalid_runtime_symbol_definitions
         run: |
           #export HTSLIB=system
           git clone https://github.com/38/d4-format
