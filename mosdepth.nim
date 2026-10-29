@@ -653,8 +653,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
     for spec in ($args["--exclude-tag"]).split(','):
       # split once here so the per-alignment check is a plain comparison.
       let c = spec.find(':')
-      if c <= 0:
-        stderr.write_line("[mosdepth] error --exclude-tag expects TAG:VALUE, got '" & spec & "'")
+      if c != 2:
+        stderr.write_line("[mosdepth] error --exclude-tag expects TAG:VALUE with a two-character TAG, got '" & spec & "'")
         quit(2)
       exclude_tags.add((tag: spec[0 ..< c], value: spec[(c+1) .. ^1]))
   var levels = get_min_levels(targets)
