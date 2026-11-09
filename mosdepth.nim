@@ -807,6 +807,8 @@ proc main(bam: hts.Bam, chrom: region_t, mapq: int, min_len: int, max_len: int, 
         var write_fbase = true
         when defined(d4):
           if use_d4:
+            let sentinel = arr.pop()
+            defer: arr.add(sentinel)
             fd4.write(target.name, 0, arr)
             write_fbase = false
 
