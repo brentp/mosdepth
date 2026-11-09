@@ -219,6 +219,9 @@ rm -f t.per-base.bed.gz
 run d4test $exe --d4 t --fast-mode tests/ovl.bam
 assert_exit_code 0
 
+run d4_sentinel nim c -d:d4 -r tests/d4_output.nim
+assert_exit_code 0
+
 
 test -e $bam || exit
 
